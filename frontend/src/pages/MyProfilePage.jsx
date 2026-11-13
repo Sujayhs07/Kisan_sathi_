@@ -28,6 +28,43 @@ export default function MyProfilePage() {
     setIsEditing(true);
   };
 
+  // Bulletproof 10-digit mobile keyboard blocker
+  const handlePhoneKeyDown = (e) => {
+    if (
+      [
+        'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+        'Home', 'End'
+      ].includes(e.key) ||
+      e.ctrlKey || e.metaKey || e.altKey
+    ) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    const input = e.currentTarget;
+    const selectedLength = (input.selectionEnd || 0) - (input.selectionStart || 0);
+    const rawDigits = (input.value || '').replace(/\D/g, '');
+    if (rawDigits.length >= 10 && selectedLength === 0) {
+      e.preventDefault();
+    }
+  };
+
+  const handlePhonePaste = (e) => {
+    e.preventDefault();
+    const pastedText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    let digits = pastedText.replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('91')) {
+      digits = digits.slice(2);
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+    const strictlyTen = digits.slice(0, 10);
+    setEditForm(prev => ({ ...prev, mobile: strictlyTen ? `+91 ${strictlyTen}` : '' }));
+  };
+
   const handleSave = (e) => {
     e.preventDefault();
     setProfile(editForm);
@@ -297,6 +334,14 @@ export default function MyProfilePage() {
                         pattern="[0-9]*"
                         maxLength={10}
                         value={editForm.mobile ? editForm.mobile.replace(/\D/g, '').slice(-10) : ''}
+                        onKeyDown={handlePhoneKeyDown}
+                        onPaste={handlePhonePaste}
+                        onInput={(e) => {
+                          const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          if (e.target.value !== clean) {
+                            e.target.value = clean;
+                          }
+                        }}
                         onChange={(e) => {
                           const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
                           setEditForm({ ...editForm, mobile: digitsOnly ? `+91 ${digitsOnly}` : '' });

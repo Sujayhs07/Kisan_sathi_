@@ -122,6 +122,45 @@ export default function LoginPage({ initialMode = 'login' }) {
   };
 
   // MOBILE INPUT HANDLERS (strictly 10 digits only)
+  const handlePhoneKeyDown = (e) => {
+    // Allow functional/navigation keys
+    if (
+      [
+        'Backspace', 'Delete', 'Tab', 'Enter', 'Escape',
+        'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+        'Home', 'End'
+      ].includes(e.key) ||
+      e.ctrlKey || e.metaKey || e.altKey
+    ) {
+      return;
+    }
+    // Block any non-numeric key immediately
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    // If already 10 digits and user hasn't highlighted text to replace, block keystroke
+    const input = e.currentTarget;
+    const selectedLength = (input.selectionEnd || 0) - (input.selectionStart || 0);
+    const rawDigits = (input.value || '').replace(/\D/g, '');
+    if (rawDigits.length >= 10 && selectedLength === 0) {
+      e.preventDefault();
+    }
+  };
+
+  const handlePhonePaste = (e, callback) => {
+    e.preventDefault();
+    const pastedText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    let digits = pastedText.replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('91')) {
+      digits = digits.slice(2);
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      digits = digits.slice(1);
+    }
+    const strictlyTen = digits.slice(0, 10);
+    callback(strictlyTen);
+  };
+
   const handleLoginMobileChange = (e) => {
     const cleanDigits = e.target.value.replace(/\D/g, '').slice(0, 10);
     setLoginMobile(cleanDigits);
@@ -562,6 +601,17 @@ export default function LoginPage({ initialMode = 'login' }) {
                         pattern="[0-9]*"
                         maxLength={10}
                         value={loginMobile}
+                        onKeyDown={handlePhoneKeyDown}
+                        onPaste={(e) => handlePhonePaste(e, (val) => {
+                          setLoginMobile(val);
+                          if (loginError) setLoginError('');
+                        })}
+                        onInput={(e) => {
+                          const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          if (e.target.value !== clean) {
+                            e.target.value = clean;
+                          }
+                        }}
                         onChange={handleLoginMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
                         className="w-full pl-14 pr-20 py-3.5 bg-white border border-stone-300 rounded-2xl text-stone-900 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-base tracking-wider"
@@ -733,6 +783,17 @@ export default function LoginPage({ initialMode = 'login' }) {
                         pattern="[0-9]*"
                         maxLength={10}
                         value={signupForm.mobile}
+                        onKeyDown={handlePhoneKeyDown}
+                        onPaste={(e) => handlePhonePaste(e, (val) => {
+                          setSignupForm(prev => ({ ...prev, mobile: val }));
+                          if (signupError) setSignupError('');
+                        })}
+                        onInput={(e) => {
+                          const clean = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          if (e.target.value !== clean) {
+                            e.target.value = clean;
+                          }
+                        }}
                         onChange={handleSignupMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
                         className="w-full pl-14 pr-20 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-sm"
