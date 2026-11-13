@@ -30,7 +30,7 @@ export default function CheckEligibilityPage() {
       <TopHeader />
 
       <main className="flex-1 p-3.5 sm:p-6 md:p-10 max-w-5xl w-full mx-auto space-y-4 sm:space-y-6">
-        
+
         {/* Top Header & Mode Switcher */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-stone-300/80">
           <div>
@@ -39,12 +39,12 @@ export default function CheckEligibilityPage() {
             </h1>
             <p className="text-stone-600 text-xs sm:text-sm mt-1">
               {mode === 'ai-chat'
-                ? (language === 'kn' 
-                    ? 'ಕಿಸಾನ್ ಸಾಥಿ AI ಚಾಟ್‌ಬಾಟ್‌ನೊಂದಿಗೆ ಸಂವಾದ ನಡೆಸಿ ನಿಮ್ಮ ಅರ್ಹತೆಯನ್ನು ತಕ್ಷಣವೇ ತಿಳಿಯಿರಿ.' 
-                    : 'Chat with Kisan Saathi AI or use the step-by-step form to evaluate your schemes.')
-                : (language === 'kn' 
-                    ? 'ನಿಮ್ಮ ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿಯ ಬಗ್ಗೆ ಕೆಲವು ಸರಳ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಿ.' 
-                    : 'Answer a few simple questions about you and your farm.')}
+                ? (language === 'kn'
+                  ? 'ಕಿಸಾನ್ ಸಾಥಿ AI ಚಾಟ್‌ಬಾಟ್‌ನೊಂದಿಗೆ ಸಂವಾದ ನಡೆಸಿ ನಿಮ್ಮ ಅರ್ಹತೆಯನ್ನು ತಕ್ಷಣವೇ ತಿಳಿಯಿರಿ.'
+                  : 'Chat with Kisan Saathi AI or use the step-by-step form to evaluate your schemes.')
+                : (language === 'kn'
+                  ? 'ನಿಮ್ಮ ಮತ್ತು ನಿಮ್ಮ ಕೃಷಿಯ ಬಗ್ಗೆ ಕೆಲವು ಸರಳ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಿ.'
+                  : 'Answer a few simple questions about you and your farm.')}
             </p>
           </div>
 
@@ -53,11 +53,10 @@ export default function CheckEligibilityPage() {
             <button
               type="button"
               onClick={() => setMode('ai-chat')}
-              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all relative ${
-                mode === 'ai-chat' 
-                  ? 'bg-forest-800 text-white shadow-md' 
-                  : 'text-stone-700 hover:text-stone-900'
-              }`}
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all relative ${mode === 'ai-chat'
+                ? 'bg-forest-800 text-white shadow-md'
+                : 'text-stone-700 hover:text-stone-900'
+                }`}
             >
               <Bot className="w-4 h-4 text-emerald-400" />
               <span>{language === 'kn' ? 'AI ಚಾಟ್‌ಬಾಟ್' : 'AI Assistant'}</span>
@@ -67,11 +66,10 @@ export default function CheckEligibilityPage() {
             <button
               type="button"
               onClick={() => setMode('form')}
-              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all ${
-                mode === 'form' 
-                  ? 'bg-white text-forest-900 shadow-md border border-stone-200' 
-                  : 'text-stone-700 hover:text-stone-900'
-              }`}
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 transition-all ${mode === 'form'
+                ? 'bg-white text-forest-900 shadow-md border border-stone-200'
+                : 'text-stone-700 hover:text-stone-900'
+                }`}
             >
               <FileText className="w-4 h-4 text-forest-700" />
               <span>{language === 'kn' ? 'ಹಂತ-ಹಂತದ ಫಾರ್ಮ್' : 'Step Form'}</span>
@@ -90,19 +88,18 @@ export default function CheckEligibilityPage() {
               <div className="flex items-center justify-between relative max-w-3xl mx-auto">
                 {/* Background progress bar line */}
                 <div className="absolute top-1/2 left-0 right-0 h-1 bg-stone-300 -translate-y-1/2 z-0" />
-                <div 
-                  className="absolute top-1/2 left-0 h-1 bg-forest-800 -translate-y-1/2 z-0 transition-all duration-300" 
+                <div
+                  className="absolute top-1/2 left-0 h-1 bg-forest-800 -translate-y-1/2 z-0 transition-all duration-300"
                   style={{ width: `${((wizardStep - 1) / 3) * 100}%` }}
                 />
 
                 {/* Step 1 */}
-                <div 
+                <div
                   onClick={() => setWizardStep(1)}
                   className="relative z-10 flex flex-col items-center cursor-pointer group"
                 >
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${
-                    wizardStep >= 1 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
-                  }`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${wizardStep >= 1 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
+                    }`}>
                     {wizardStep > 1 ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : '1'}
                   </div>
                   <span className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-bold max-w-[65px] sm:max-w-none text-center leading-tight ${wizardStep === 1 ? 'text-forest-900' : 'text-stone-500'}`}>
@@ -111,13 +108,12 @@ export default function CheckEligibilityPage() {
                 </div>
 
                 {/* Step 2 */}
-                <div 
+                <div
                   onClick={() => setWizardStep(2)}
                   className="relative z-10 flex flex-col items-center cursor-pointer group"
                 >
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${
-                    wizardStep >= 2 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
-                  }`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${wizardStep >= 2 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
+                    }`}>
                     {wizardStep > 2 ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : '2'}
                   </div>
                   <span className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-bold max-w-[65px] sm:max-w-none text-center leading-tight ${wizardStep === 2 ? 'text-forest-900' : 'text-stone-500'}`}>
@@ -126,13 +122,12 @@ export default function CheckEligibilityPage() {
                 </div>
 
                 {/* Step 3 */}
-                <div 
+                <div
                   onClick={() => setWizardStep(3)}
                   className="relative z-10 flex flex-col items-center cursor-pointer group"
                 >
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${
-                    wizardStep >= 3 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
-                  }`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${wizardStep >= 3 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
+                    }`}>
                     {wizardStep > 3 ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : '3'}
                   </div>
                   <span className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-bold max-w-[65px] sm:max-w-none text-center leading-tight ${wizardStep === 3 ? 'text-forest-900' : 'text-stone-500'}`}>
@@ -141,13 +136,12 @@ export default function CheckEligibilityPage() {
                 </div>
 
                 {/* Step 4 */}
-                <div 
+                <div
                   onClick={() => setWizardStep(4)}
                   className="relative z-10 flex flex-col items-center cursor-pointer group"
                 >
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${
-                    wizardStep >= 4 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
-                  }`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-md transition-all ${wizardStep >= 4 ? 'bg-forest-800 text-white ring-4 ring-forest-100' : 'bg-stone-200 text-stone-600'
+                    }`}>
                     4
                   </div>
                   <span className={`text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-bold max-w-[65px] sm:max-w-none text-center leading-tight ${wizardStep === 4 ? 'text-forest-900' : 'text-stone-500'}`}>
@@ -160,7 +154,7 @@ export default function CheckEligibilityPage() {
 
             {/* Wizard Form Card matching 04_Eligibility_Questionnaire.png */}
             <div className="bg-white rounded-2xl sm:rounded-3xl border border-stone-200/90 shadow-sm p-4 sm:p-8 md:p-10">
-              
+
               {/* STEP 1: Basic Details */}
               {wizardStep === 1 && (
                 <div>
@@ -169,7 +163,7 @@ export default function CheckEligibilityPage() {
                   </h2>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    
+
                     {/* Full Name */}
                     <div className="col-span-1 md:col-span-2 lg:col-span-1">
                       <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
@@ -280,10 +274,10 @@ export default function CheckEligibilityPage() {
                           const newDist = e.target.value;
                           const availableTaluks = getTaluks(wizardData.state || 'Karnataka', newDist);
                           const firstTaluk = availableTaluks[0] || '';
-                          setWizardData({ 
-                            ...wizardData, 
-                            district: newDist, 
-                            taluk: firstTaluk 
+                          setWizardData({
+                            ...wizardData,
+                            district: newDist,
+                            taluk: firstTaluk
                           });
                         }}
                         className="w-full px-4 py-3 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none cursor-pointer"
@@ -406,6 +400,8 @@ export default function CheckEligibilityPage() {
                         {language === 'kn' ? 'ವಾರ್ಷಿಕ ಕೃಷಿ ಆದಾಯ' : 'Annual Agricultural Income'} *
                       </label>
                       <select
+                        value={wizardData.annualIncome || 'Below 1 Lakh'}
+                        onChange={(e) => setWizardData({ ...wizardData, annualIncome: e.target.value })}
                         className="w-full px-4 py-3 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none"
                       >
                         <option value="Below 1 Lakh">Below ₹1,00,000 / year</option>
@@ -489,7 +485,7 @@ export default function CheckEligibilityPage() {
                       </div>
                     </div>
 
-                    <div className="border-t border-amber-200/60 pt-3 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div className="border-t border-amber-200/60 pt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-xs text-stone-500 uppercase">Land Type:</span>
                         <p className="font-bold text-stone-900">{wizardData.landType}</p>
@@ -502,14 +498,18 @@ export default function CheckEligibilityPage() {
                         <span className="text-xs text-stone-500 uppercase">Irrigation:</span>
                         <p className="font-bold text-stone-900">{wizardData.irrigationType}</p>
                       </div>
+                      <div>
+                        <span className="text-xs text-stone-500 uppercase">Annual Income:</span>
+                        <p className="font-bold text-stone-900">{wizardData.annualIncome || 'Below 1 Lakh'}</p>
+                      </div>
                     </div>
                   </div>
 
                   <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-3">
                     <Sparkles className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                     <span>
-                      {language === 'kn' 
-                        ? 'ಅರ್ಹತಾ ಇಂಜಿನ್ ಸಿದ್ಧವಾಗಿದೆ. ಕ್ಲಿಕ್ ಮಾಡಿದ ನಂತರ ತಕ್ಷಣವೇ ನಿಮ್ಮ ಫಲಿತಾಂಶಗಳು ಸಿಗುತ್ತವೆ.' 
+                      {language === 'kn'
+                        ? 'ಅರ್ಹತಾ ಇಂಜಿನ್ ಸಿದ್ಧವಾಗಿದೆ. ಕ್ಲಿಕ್ ಮಾಡಿದ ನಂತರ ತಕ್ಷಣವೇ ನಿಮ್ಮ ಫಲಿತಾಂಶಗಳು ಸಿಗುತ್ತವೆ.'
                         : 'The Rules Engine is ready to evaluate 9 central and Karnataka state schemes.'}
                     </span>
                   </div>
@@ -536,8 +536,8 @@ export default function CheckEligibilityPage() {
                   className="px-8 py-3 rounded-full bg-maroon-700 hover:bg-maroon-800 disabled:opacity-60 text-white font-semibold text-sm flex items-center gap-2 shadow-md transition-all active:scale-95 ml-auto"
                 >
                   <span>
-                    {isEvaluating 
-                      ? (language === 'kn' ? 'ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ...' : 'Evaluating Schemes...') 
+                    {isEvaluating
+                      ? (language === 'kn' ? 'ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ...' : 'Evaluating Schemes...')
                       : (wizardStep === 4 ? (language === 'kn' ? 'ಫಲಿತಾಂಶ ನೋಡಿ' : 'Evaluate & View Results') : t.next)}
                   </span>
                   <ArrowRight className="w-4 h-4" />

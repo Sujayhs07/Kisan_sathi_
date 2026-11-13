@@ -88,6 +88,7 @@ export const AppProvider = ({ children }) => {
     landType: 'Marginal (< 2.5 Acres)',
     cropType: 'Ragi & Cereals',
     irrigationType: 'Borewell & Rainfed',
+    annualIncome: 'Below 1 Lakh',
     aadhaarLinked: true,
     fruitsRegistered: true
   });
@@ -104,6 +105,7 @@ export const AppProvider = ({ children }) => {
     landHolding: '2.0',
     cropType: 'Ragi & Cereals',
     irrigationType: 'Borewell & Rainfed',
+    annualIncome: 'Below 1 Lakh',
     aadhaarLinked: true,
     fruitsRegistered: true
   }));
@@ -188,7 +190,11 @@ export const AppProvider = ({ children }) => {
 
   const toggleLanguage = useCallback((lang) => {
     stopSpeaking();
-    setLanguage(lang);
+    if (typeof lang === 'string' && (lang === 'kn' || lang === 'en')) {
+      setLanguage(lang);
+    } else {
+      setLanguage(prev => (prev === 'kn' ? 'en' : 'kn'));
+    }
   }, [stopSpeaking]);
 
   const toggleReminder = (schemeId) => {

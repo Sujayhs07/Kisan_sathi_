@@ -121,17 +121,30 @@ export default function LoginPage({ initialMode = 'login' }) {
     }));
   };
 
+  // MOBILE INPUT HANDLERS (strictly 10 digits only)
+  const handleLoginMobileChange = (e) => {
+    const cleanDigits = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setLoginMobile(cleanDigits);
+    if (loginError) setLoginError('');
+  };
+
+  const handleSignupMobileChange = (e) => {
+    const cleanDigits = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setSignupForm(prev => ({ ...prev, mobile: cleanDigits }));
+    if (signupError) setSignupError('');
+  };
+
   // SEND OTP FOR LOGIN
   const handleSendLoginOtp = (e) => {
     e.preventDefault();
     setLoginError('');
 
     const cleanNum = loginMobile.replace(/\D/g, '');
-    if (cleanNum.length < 10) {
+    if (cleanNum.length !== 10 || !/^[6-9]\d{9}$/.test(cleanNum)) {
       setLoginError(
         language === 'kn'
-          ? 'ದಯವಿಟ್ಟು 10-ಅಂಕಿಯ ಮಾನ್ಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ'
-          : 'Please enter a valid 10-digit mobile number'
+          ? 'ದಯವಿಟ್ಟು 6-9 ರಿಂದ ಪ್ರಾರಂಭವಾಗುವ 10-ಅಂಕಿಯ ಮಾನ್ಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ'
+          : 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)'
       );
       return;
     }
@@ -214,11 +227,11 @@ export default function LoginPage({ initialMode = 'login' }) {
     }
 
     const cleanNum = signupForm.mobile.replace(/\D/g, '');
-    if (cleanNum.length < 10) {
+    if (cleanNum.length !== 10 || !/^[6-9]\d{9}$/.test(cleanNum)) {
       setSignupError(
         language === 'kn'
-          ? 'ದಯವಿಟ್ಟು 10-ಅಂಕಿಯ ಮಾನ್ಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ'
-          : 'Please enter a valid 10-digit mobile number'
+          ? 'ದಯವಿಟ್ಟು 6-9 ರಿಂದ ಪ್ರಾರಂಭವಾಗುವ 10-ಅಂಕಿಯ ಮಾನ್ಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ'
+          : 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)'
       );
       return;
     }
@@ -545,18 +558,24 @@ export default function LoginPage({ initialMode = 'login' }) {
                       </div>
                       <input
                         type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={10}
                         value={loginMobile}
-                        onChange={(e) => setLoginMobile(e.target.value)}
+                        onChange={handleLoginMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
-                        className="w-full pl-14 pr-11 py-3.5 bg-white border border-stone-300 rounded-2xl text-stone-900 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-base tracking-wider"
+                        className="w-full pl-14 pr-20 py-3.5 bg-white border border-stone-300 rounded-2xl text-stone-900 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-base tracking-wider"
                         required
                         autoFocus
                       />
-                      {loginMobile.replace(/\D/g, '').length === 10 && (
-                        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-emerald-600">
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                      )}
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center gap-1.5 pointer-events-none">
+                        <span className={`text-[11px] font-bold ${loginMobile.length === 10 ? 'text-emerald-700' : 'text-stone-400'}`}>
+                          {loginMobile.length}/10
+                        </span>
+                        {loginMobile.length === 10 && (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -710,17 +729,23 @@ export default function LoginPage({ initialMode = 'login' }) {
                       </div>
                       <input
                         type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={10}
                         value={signupForm.mobile}
-                        onChange={(e) => setSignupForm({ ...signupForm, mobile: e.target.value })}
+                        onChange={handleSignupMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
-                        className="w-full pl-14 pr-10 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-sm"
+                        className="w-full pl-14 pr-20 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-sm"
                         required
                       />
-                      {signupForm.mobile.replace(/\D/g, '').length === 10 && (
-                        <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-emerald-600">
-                          <CheckCircle2 className="w-4 h-4" />
-                        </div>
-                      )}
+                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center gap-1.5 pointer-events-none">
+                        <span className={`text-[11px] font-bold ${signupForm.mobile.length === 10 ? 'text-emerald-700' : 'text-stone-400'}`}>
+                          {signupForm.mobile.length}/10
+                        </span>
+                        {signupForm.mobile.length === 10 && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        )}
+                      </div>
                     </div>
                   </div>
 

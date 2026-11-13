@@ -283,14 +283,26 @@ export default function MyProfilePage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block mb-1">
-                        {t.mobileNumber}
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
+                          {t.mobileNumber}
+                        </label>
+                        <span className="text-[10px] text-stone-500 font-bold">
+                          {editForm.mobile ? editForm.mobile.replace(/\D/g, '').slice(-10).length : 0}/10
+                        </span>
+                      </div>
                       <input
-                        type="text"
-                        value={editForm.mobile}
-                        onChange={(e) => setEditForm({ ...editForm, mobile: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none"
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={10}
+                        value={editForm.mobile ? editForm.mobile.replace(/\D/g, '').slice(-10) : ''}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setEditForm({ ...editForm, mobile: digitsOnly ? `+91 ${digitsOnly}` : '' });
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none font-mono"
+                        placeholder="10-digit mobile number"
                         required
                       />
                     </div>
