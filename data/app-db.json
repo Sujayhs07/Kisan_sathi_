@@ -1,0 +1,362 @@
+{
+  "users": [
+    {
+      "id": "user_seed_karnataka",
+      "email": "raitha.bandhu@karnataka.gov.in",
+      "fullName": "Basavaraj Patil",
+      "preferredLanguage": "kn",
+      "district": "Dharwad",
+      "phoneNumber": "+919845012345",
+      "emailVerified": true,
+      "createdAt": "2026-11-13T07:22:39.585Z",
+      "updatedAt": "2026-11-13T07:22:39.585Z",
+      "passwordHash": "67081d751b45ea1f26074c8da1c8aadfeb99ae654833894cca14ff26c5f9abe0607525255db0d7e400e1a27340b46866af84eefbcac6eaa7478d22ff2fbacb00",
+      "salt": "8be693e641b80921d87ebac72a702a00",
+      "username": "basavaraj_patil",
+      "phoneVerified": true,
+      "accountStatus": "ACTIVE",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false
+    },
+    {
+      "id": "usr_fabe474d-fc4",
+      "email": "deepak.test.1794558190@example.com",
+      "fullName": "Deepak Khandare",
+      "preferredLanguage": "en",
+      "district": "Dharwad",
+      "phoneNumber": "+919000000001",
+      "emailVerified": true,
+      "createdAt": "2026-11-13T08:23:13.994Z",
+      "updatedAt": "2026-11-13T08:23:23.437Z",
+      "passwordHash": "7de7e29f75a7f7fcc7217c16ab2b76fcddafe1b27f084ac1263f5a339070e108f8bf35f5310bb281b3c7083e2f92ba4918cb358ed3a85c83bda5be21925923dc",
+      "salt": "d1b01570bdd765f44b69e930d8ba25df",
+      "username": "farmer_4d-fc4",
+      "phoneVerified": true,
+      "accountStatus": "ACTIVE",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false
+    },
+    {
+      "id": "usr_20249a9d-7aa",
+      "username": "farmer_664370",
+      "fullName": "Sujay Verified Farmer",
+      "phoneNumber": "+919845078858",
+      "phoneVerified": false,
+      "preferredLanguage": "kn",
+      "district": "Bengaluru Rural",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false,
+      "accountStatus": "PENDING_VERIFICATION",
+      "createdAt": "2026-11-13T16:51:04.371Z",
+      "updatedAt": "2026-11-13T16:51:04.371Z",
+      "passwordHash": "4591c752d9f8ea005302e444524681fac2e50ff61e56d4bb83229dc0b98d034b118851294facf42f14c0b9bdb44e58db6e756ae8d9d900f50fdaac0d13b7fc5a",
+      "salt": "f273f7687a15cf9c1bf95a6872b0ac28"
+    },
+    {
+      "id": "usr_20dd2a83-5d0",
+      "username": "farmer_317067",
+      "fullName": "Sujay Verified Farmer",
+      "phoneNumber": "+919845096365",
+      "phoneVerified": true,
+      "preferredLanguage": "kn",
+      "district": "Bengaluru Rural",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false,
+      "accountStatus": "ACTIVE",
+      "createdAt": "2026-11-13T17:01:57.068Z",
+      "updatedAt": "2026-11-13T17:01:57.093Z",
+      "passwordHash": "59f842dbf59cdf13be1f457b987703ab6b720ea3e5a309d6e13430b4dcc8a4428d4569bd59f18cb583af9544155531679b28a0e46f6ae7700ae7da00153f52e2",
+      "salt": "dfcbf0980497eb640d19b9c0b1e0159b"
+    },
+    {
+      "id": "usr_81c47034-1c1",
+      "username": "farmer_385033",
+      "fullName": "Sujay Verified Farmer",
+      "phoneNumber": "+919845079525",
+      "phoneVerified": true,
+      "preferredLanguage": "kn",
+      "district": "Bengaluru Rural",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false,
+      "accountStatus": "ACTIVE",
+      "createdAt": "2026-11-13T17:03:05.035Z",
+      "updatedAt": "2026-11-13T17:03:05.039Z",
+      "passwordHash": "5974d0429cf239d44fdba25014cb1869dddcbfa3e1ddfab41272166a7c381bd359d056af26dee144a4f87d228d6a0f2d787cd7181e043eed651e4c6faddb7a01",
+      "salt": "57b74829f3d89e810e749b5a97bfb96f"
+    },
+    {
+      "id": "usr_33677a37-1fb",
+      "username": "farmer_570375",
+      "fullName": "Sujay Verified Farmer",
+      "phoneNumber": "+919845074886",
+      "phoneVerified": true,
+      "preferredLanguage": "kn",
+      "district": "Bengaluru Rural",
+      "timezone": "Asia/Kolkata",
+      "smsRemindersEnabled": false,
+      "accountStatus": "ACTIVE",
+      "createdAt": "2026-11-13T17:06:10.377Z",
+      "updatedAt": "2026-11-13T17:06:10.381Z",
+      "passwordHash": "fa7b65e27ee82e7139ea9c63d7d10819023074b82c0eb568204fb33c1d072219c288e08de413c76dec01c444db5d95795330a79c43102eb9d5d351ebd649c3c5",
+      "salt": "c334cc587423eb1cc636cf7e0c0bb6bc"
+    }
+  ],
+  "otpVerifications": [
+    {
+      "id": "otp_d30ed862-dbc",
+      "phoneNumber": "+919845078858",
+      "otpHash": "59a491c766f3b3e4394cb164b6f085f442e75ab704dd4bd65c1fb64c1ceb89f7",
+      "otpSalt": "8a8b5932e22fe3b7c0687772dcb23806",
+      "purpose": "REGISTRATION",
+      "expiresAt": "2026-11-13T16:56:04.372Z",
+      "verifiedAt": null,
+      "invalidatedAt": null,
+      "attempts": 1,
+      "createdAt": "2026-11-13T16:51:04.371Z"
+    },
+    {
+      "id": "otp_6ef63834-811",
+      "phoneNumber": "+919845096365",
+      "otpHash": "2fdbe5393719f90f2877896832929bf63c52442a5654027b801ed50c33feaab9",
+      "otpSalt": "a0efa45437fc988a606103a0d0c2543a",
+      "purpose": "REGISTRATION",
+      "expiresAt": "2026-11-13T17:06:57.069Z",
+      "verifiedAt": "2026-11-13T17:01:57.093Z",
+      "invalidatedAt": null,
+      "attempts": 1,
+      "createdAt": "2026-11-13T17:01:57.069Z"
+    },
+    {
+      "id": "otp_8b4f77af-895",
+      "phoneNumber": "+919845079525",
+      "otpHash": "5b8473911621ab6949864e71b20a5708f4a027290416f428878d82b13756e158",
+      "otpSalt": "ff9b9e352624a5a4861839bc05489d7d",
+      "purpose": "REGISTRATION",
+      "expiresAt": "2026-11-13T17:08:05.037Z",
+      "verifiedAt": "2026-11-13T17:03:05.039Z",
+      "invalidatedAt": null,
+      "attempts": 1,
+      "createdAt": "2026-11-13T17:03:05.036Z"
+    },
+    {
+      "id": "otp_3c562991-c5a",
+      "phoneNumber": "+919845074886",
+      "otpHash": "04e35333d9fd1a6a04ccb73fdde59b04e494dddd1b0a19103907c1f8dbac2f64",
+      "otpSalt": "a68ca627594364f509a9957300c49f06",
+      "purpose": "REGISTRATION",
+      "expiresAt": "2026-11-13T17:11:10.379Z",
+      "verifiedAt": "2026-11-13T17:06:10.381Z",
+      "invalidatedAt": null,
+      "attempts": 1,
+      "createdAt": "2026-11-13T17:06:10.378Z"
+    }
+  ],
+  "savedSchemes": [
+    {
+      "id": "saved_1",
+      "userId": "user_seed_karnataka",
+      "schemeId": "pm-kisan-raitha-siri",
+      "savedAt": "2026-11-10T07:22:39.585Z",
+      "schemeNameSnapshot": "PM-KISAN Samman Nidhi & Karnataka Raitha Siri",
+      "applicationDeadline": null,
+      "deadlineVerified": false,
+      "reminderEnabled": false,
+      "reminderDaysBefore": [
+        30,
+        7,
+        3,
+        1
+      ]
+    },
+    {
+      "id": "saved_2",
+      "userId": "user_seed_karnataka",
+      "schemeId": "ganga-kalyana",
+      "savedAt": "2026-11-11T07:22:39.585Z",
+      "schemeNameSnapshot": "Ganga Kalyana Scheme (Individual & Community Borewells)",
+      "applicationDeadline": "2026-11-16",
+      "deadlineVerified": true,
+      "reminderEnabled": true,
+      "reminderDaysBefore": [
+        30,
+        7,
+        3,
+        1
+      ],
+      "lastReminderSentAt": "2026-11-13T11:38:06.059Z"
+    },
+    {
+      "id": "saved_mig_raitha-vidya-nidhi",
+      "userId": "user_seed_karnataka",
+      "schemeId": "raitha-vidya-nidhi",
+      "schemeNameSnapshot": "Chief Minister's Raitha Vidya Nidhi Scholarship",
+      "savedAt": "2026-11-13T11:38:06.027Z",
+      "applicationDeadline": "2026-11-22",
+      "deadlineVerified": true,
+      "reminderEnabled": true,
+      "reminderDaysBefore": [
+        30,
+        7,
+        3,
+        1
+      ],
+      "lastReminderSentAt": "2026-11-13T11:38:06.060Z"
+    },
+    {
+      "id": "saved_mig_pmfby-samrakshane",
+      "userId": "user_seed_karnataka",
+      "schemeId": "pmfby-samrakshane",
+      "schemeNameSnapshot": "Pradhan Mantri Fasal Bima Yojana (Samrakshane)",
+      "savedAt": "2026-11-13T11:38:06.031Z",
+      "applicationDeadline": "2026-11-30",
+      "deadlineVerified": true,
+      "reminderEnabled": true,
+      "reminderDaysBefore": [
+        30,
+        7,
+        3,
+        1
+      ],
+      "lastReminderSentAt": "2026-11-13T11:38:06.060Z"
+    }
+  ],
+  "applications": [
+    {
+      "id": "app_seed_1",
+      "userId": "user_seed_karnataka",
+      "schemeId": "pm-kisan-raitha-siri",
+      "status": "READY_TO_APPLY",
+      "applicationDate": "2026-11-12T07:22:39.585Z",
+      "appliedThroughPortal": "FRUITS Karnataka (fruits.karnataka.gov.in)",
+      "acknowledgementNumber": "FRUITS-DHW-2026-89102",
+      "notes": "Pahani (RTC) and Aadhaar seeded bank account verified at Raitha Samparka Kendra.",
+      "createdAt": "2026-11-08T07:22:39.585Z",
+      "updatedAt": "2026-11-12T07:22:39.585Z",
+      "timeline": [
+        {
+          "id": "time_1",
+          "applicationId": "app_seed_1",
+          "status": "INTERESTED",
+          "note": "Discovered scheme eligibility via Kisan Scheme Saathi questionnaire.",
+          "timestamp": "2026-11-08T07:22:39.585Z"
+        },
+        {
+          "id": "time_2",
+          "applicationId": "app_seed_1",
+          "status": "PREPARING",
+          "note": "Collected RTC/Pahani from Bhoomi portal and Aadhaar copy.",
+          "timestamp": "2026-11-10T07:22:39.585Z"
+        },
+        {
+          "id": "time_3",
+          "applicationId": "app_seed_1",
+          "status": "READY_TO_APPLY",
+          "note": "All 4 essential documents verified. Ready for portal submission.",
+          "timestamp": "2026-11-12T07:22:39.585Z"
+        }
+      ],
+      "schemeNameSnapshot": "PM-KISAN Samman Nidhi & Karnataka Raitha Siri"
+    },
+    {
+      "id": "app_e423f2ca-428",
+      "userId": "usr_fabe474d-fc4",
+      "schemeId": "pm-kisan-raitha-siri",
+      "status": "PREPARING",
+      "applicationDate": "2026-11-13T08:23:48.368Z",
+      "appliedThroughPortal": "FRUITS Karnataka (fruits.karnataka.gov.in)",
+      "acknowledgementNumber": "FRUITS-2026-99421",
+      "notes": "RTC and Aadhaar verified at Hobli RSK.",
+      "createdAt": "2026-11-13T08:23:48.368Z",
+      "updatedAt": "2026-11-13T08:23:48.368Z",
+      "timeline": [
+        {
+          "id": "time_7caddf91",
+          "applicationId": "app_e423f2ca-428",
+          "status": "PREPARING",
+          "note": "RTC and Aadhaar verified at Hobli RSK.",
+          "timestamp": "2026-11-13T08:23:48.368Z"
+        }
+      ],
+      "schemeNameSnapshot": "PM-KISAN Samman Nidhi & Karnataka Raitha Siri"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "ntf_5283e77c-e34",
+      "userId": "user_seed_karnataka",
+      "schemeId": "ganga-kalyana",
+      "schemeNameSnapshot": "Ganga Kalyana Scheme (Individual & Community Borewells)",
+      "titleEn": "Urgent Deadline: Ganga Kalyana Scheme (Individual & Community Borewells)",
+      "titleKn": "ತುರ್ತು ಕೊನೆಯ ದಿನಾಂಕ: ಗಂಗಾ ಕಲ್ಯಾಣ ಯೋಜನೆ (ವೈಯಕ್ತಿಕ ಹಾಗೂ ಸಮುದಾಯ ಬೋರ್‌ವೆಲ್)",
+      "messageEn": "Application deadline is 2026-11-16 (3 day(s) remaining). Open your readiness checklist to prepare documents.",
+      "messageKn": "ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಕೊನೆಯ ದಿನಾಂಕ 2026-11-16 (3 ದಿನ ಬಾಕಿ ಇದೆ). ದಾಖಲೆಗಳ ಪರಿಶೀಲನಾ ಪಟ್ಟಿಯನ್ನು ಸಿದ್ಧಪಡಿಸಿ.",
+      "type": "DEADLINE_REMINDER",
+      "urgency": "URGENT",
+      "thresholdDays": 3,
+      "isRead": false,
+      "createdAt": "2026-11-13T11:38:06.059Z",
+      "readAt": null
+    },
+    {
+      "id": "ntf_e414c103-671",
+      "userId": "user_seed_karnataka",
+      "schemeId": "raitha-vidya-nidhi",
+      "schemeNameSnapshot": "Chief Minister's Raitha Vidya Nidhi Scholarship",
+      "titleEn": "Upcoming Deadline (9 days left): Chief Minister's Raitha Vidya Nidhi Scholarship",
+      "titleKn": "ಸಮೀಪಿಸುತ್ತಿರುವ ಕೊನೆಯ ದಿನಾಂಕ (9 ದಿನ ಬಾಕಿ): ಮುಖ್ಯಮಂತ್ರಿಗಳ ರೈತ ವಿದ್ಯಾನಿಧಿ ವಿದ್ಯಾರ್ಥಿವೇತನ",
+      "messageEn": "Application deadline is 2026-11-22 (9 day(s) remaining). Open your readiness checklist to prepare documents.",
+      "messageKn": "ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಕೊನೆಯ ದಿನಾಂಕ 2026-11-22 (9 ದಿನ ಬಾಕಿ ಇದೆ). ದಾಖಲೆಗಳ ಪರಿಶೀಲನಾ ಪಟ್ಟಿಯನ್ನು ಸಿದ್ಧಪಡಿಸಿ.",
+      "type": "DEADLINE_REMINDER",
+      "urgency": "APPROACHING",
+      "thresholdDays": 30,
+      "isRead": false,
+      "createdAt": "2026-11-13T11:38:06.060Z",
+      "readAt": null
+    },
+    {
+      "id": "ntf_0b2cc236-75d",
+      "userId": "user_seed_karnataka",
+      "schemeId": "pmfby-samrakshane",
+      "schemeNameSnapshot": "Pradhan Mantri Fasal Bima Yojana (Samrakshane)",
+      "titleEn": "Upcoming Deadline (17 days left): Pradhan Mantri Fasal Bima Yojana (Samrakshane)",
+      "titleKn": "ಸಮೀಪಿಸುತ್ತಿರುವ ಕೊನೆಯ ದಿನಾಂಕ (17 ದಿನ ಬಾಕಿ): ಪ್ರಧಾನ ಮಂತ್ರಿ ಫಸಲ್ ಬಿಮಾ ಯೋಜನೆ (ಕರ್ನಾಟಕ ಸಂರಕ್ಷಣೆ)",
+      "messageEn": "Application deadline is 2026-11-30 (17 day(s) remaining). Open your readiness checklist to prepare documents.",
+      "messageKn": "ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಕೊನೆಯ ದಿನಾಂಕ 2026-11-30 (17 ದಿನ ಬಾಕಿ ಇದೆ). ದಾಖಲೆಗಳ ಪರಿಶೀಲನಾ ಪಟ್ಟಿಯನ್ನು ಸಿದ್ಧಪಡಿಸಿ.",
+      "type": "DEADLINE_REMINDER",
+      "urgency": "FAR",
+      "thresholdDays": 30,
+      "isRead": false,
+      "createdAt": "2026-11-13T11:38:06.060Z",
+      "readAt": null
+    }
+  ],
+  "reminderDispatchLogs": [
+    {
+      "id": "rlog_8d7f6f7c-29b",
+      "userId": "user_seed_karnataka",
+      "schemeId": "ganga-kalyana",
+      "deadlineDate": "2026-11-16",
+      "thresholdDays": 3,
+      "channel": "IN_APP",
+      "sentAt": "2026-11-13T11:38:06.059Z"
+    },
+    {
+      "id": "rlog_e6be3804-b2e",
+      "userId": "user_seed_karnataka",
+      "schemeId": "raitha-vidya-nidhi",
+      "deadlineDate": "2026-11-22",
+      "thresholdDays": 30,
+      "channel": "IN_APP",
+      "sentAt": "2026-11-13T11:38:06.060Z"
+    },
+    {
+      "id": "rlog_ebbf2e30-30d",
+      "userId": "user_seed_karnataka",
+      "schemeId": "pmfby-samrakshane",
+      "deadlineDate": "2026-11-30",
+      "thresholdDays": 30,
+      "channel": "IN_APP",
+      "sentAt": "2026-11-13T11:38:06.060Z"
+    }
+  ]
+}

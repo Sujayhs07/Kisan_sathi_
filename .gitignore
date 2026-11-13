@@ -24,3 +24,7 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+.agent/
+.agents/
+.gemini/
+.gsd/
