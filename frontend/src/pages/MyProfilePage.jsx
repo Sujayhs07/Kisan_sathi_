@@ -18,6 +18,7 @@ import {
 import { useApp } from '../context/AppContext';
 import TopHeader from '../components/TopHeader';
 import { getStates, getDistricts, getTaluks } from '../data/locationData';
+import { getApiUrl } from '../services/apiConfig';
 
 export default function MyProfilePage() {
   const { profile, setProfile, setWizardData, evaluateEligibility, t, language } = useApp();
@@ -121,7 +122,7 @@ export default function MyProfilePage() {
     try {
       const token = localStorage.getItem('kisan_auth_token');
       if (token) {
-        await fetch('/api/auth/profile', {
+        await fetch(getApiUrl('/api/auth/profile'), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

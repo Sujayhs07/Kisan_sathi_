@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getStates, getDistricts, getTaluks } from '../data/locationData';
+import { getApiUrl } from '../services/apiConfig';
 
 export default function LoginPage({ initialMode = 'login' }) {
   const {
@@ -207,7 +208,7 @@ export default function LoginPage({ initialMode = 'login' }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/send-otp', {
+      const response = await fetch(getApiUrl('/api/auth/send-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,7 +304,7 @@ export default function LoginPage({ initialMode = 'login' }) {
     const cleanNum = loginMobile.replace(/\D/g, '');
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(getApiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -368,7 +369,7 @@ export default function LoginPage({ initialMode = 'login' }) {
     setDevOtpHint('');
     const cleanNum = loginMobile.replace(/\D/g, '');
     try {
-      const response = await fetch('/api/auth/resend-otp', {
+      const response = await fetch(getApiUrl('/api/auth/resend-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -432,7 +433,7 @@ export default function LoginPage({ initialMode = 'login' }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -535,7 +536,7 @@ export default function LoginPage({ initialMode = 'login' }) {
     const cleanNum = signupForm.mobile.replace(/\D/g, '');
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(getApiUrl('/api/auth/verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -589,7 +590,7 @@ export default function LoginPage({ initialMode = 'login' }) {
     setDevOtpHint('');
     const cleanNum = signupForm.mobile.replace(/\D/g, '');
     try {
-      const response = await fetch('/api/auth/resend-otp', {
+      const response = await fetch(getApiUrl('/api/auth/resend-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

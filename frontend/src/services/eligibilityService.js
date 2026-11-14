@@ -1,4 +1,5 @@
 import { evaluateFarmerProfile } from './eligibilityEngine.js';
+import { getApiUrl } from './apiConfig.js';
 
 /**
  * Service to evaluate scheme eligibility against the backend API with
@@ -64,7 +65,7 @@ export async function evaluateSchemeEligibility(wizardData = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-    const res = await fetch('/api/eligibility/evaluate', {
+    const res = await fetch(getApiUrl('/api/eligibility/evaluate'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

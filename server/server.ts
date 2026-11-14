@@ -86,18 +86,22 @@ const PORT =
 
 app.use(express.json());
 
-// Allow local cross-port origins (e.g. Vite :3000 <-> nginx :8080 or Vite :5173 <-> :3000)
+// Allow local cross-port origins and cloud frontend deployments (e.g., Vercel, localhost)
 app.use('/api', (req, res, next) => {
   const origin = req.headers.origin;
   if (
     origin &&
     (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin) ||
-      (process.env.APP_URL && origin === process.env.APP_URL))
+      /\.vercel\.app$/i.test(origin) ||
+      origin === process.env.APP_URL ||
+      origin === process.env.FRONTEND_URL ||
+      origin === process.env.CLIENT_ORIGIN)
   ) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);

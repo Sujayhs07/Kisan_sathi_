@@ -3,6 +3,7 @@ import { userProfileData, schemesData } from '../data/schemesData';
 import { translations } from '../data/translations';
 import { evaluateFarmerProfile } from '../services/eligibilityEngine';
 import { evaluateSchemeEligibility } from '../services/eligibilityService';
+import { getApiUrl } from '../services/apiConfig';
 
 // ========================================================
 // KANNADA-TO-PHONETIC TRANSLITERATOR
@@ -486,7 +487,7 @@ export const AppProvider = ({ children }) => {
 
   // Query Murf AI configuration status from backend
   useEffect(() => {
-    fetch('/api/voice/status')
+    fetch(getApiUrl('/api/voice/status'))
       .then(res => res.json())
       .then(data => {
         if (data) {
@@ -648,7 +649,7 @@ export const AppProvider = ({ children }) => {
           : (murfConfig.femaleVoiceId || 'Pooja')
       );
 
-      const response = await fetch('/api/voice/tts', {
+      const response = await fetch(getApiUrl('/api/voice/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

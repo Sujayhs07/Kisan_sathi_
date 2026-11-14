@@ -42,9 +42,11 @@
  * }
  */
 
+import { getApiUrl } from './apiConfig.js';
+
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_CHAT_API_URL)
   ? import.meta.env.VITE_AI_CHAT_API_URL
-  : '/api/eligibility-chat';
+  : getApiUrl('/api/eligibility-chat');
 
 /**
  * Intelligent client-side conversational fallback
