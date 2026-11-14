@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix server install",
+    "start": "npm --prefix server run start",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix server run start",
     "dev:backend:watch": "npm --prefix server run dev",

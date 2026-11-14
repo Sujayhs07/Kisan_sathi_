@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
@@ -1621,9 +1622,12 @@ async function startServer() {
   await checkPostgreSqlConnection();
 
   if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.resolve(__dirname, '..', 'dist')));
+    const frontendDist = path.resolve(__dirname, '..', 'frontend', 'dist');
+    const rootDist = path.resolve(__dirname, '..', 'dist');
+    const staticDir = fs.existsSync(frontendDist) ? frontendDist : rootDist;
+    app.use(express.static(staticDir));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, '..', 'dist', 'index.html'));
+      res.sendFile(path.resolve(staticDir, 'index.html'));
     });
   }
 
