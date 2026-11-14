@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Phone,
@@ -13,7 +14,8 @@ import {
   Check,
   CheckSquare,
   FileText,
-  BookOpen
+  BookOpen,
+  Loader2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getStates, getDistricts, getTaluks } from '../data/locationData';
@@ -26,6 +28,7 @@ export default function LoginPage({ initialMode = 'login' }) {
     t,
     setProfile,
     setWizardData,
+    loginUser,
     intendedDestination,
     setIntendedDestination,
     speakText,
@@ -46,6 +49,12 @@ export default function LoginPage({ initialMode = 'login' }) {
     setIsSignUp(initialMode === 'register');
   }, [initialMode]);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [userNotFound, setUserNotFound] = useState(false);
+  const [userAlreadyExists, setUserAlreadyExists] = useState(false);
+  const [devOtpHint, setDevOtpHint] = useState('');
+  const [smsDelivered, setSmsDelivered] = useState(false);
+
   // LOGIN STATE (OTP-based, starts empty without fake data)
   const [loginMobile, setLoginMobile] = useState('');
   const [loginOtpBoxes, setLoginOtpBoxes] = useState(['', '', '', '', '', '']);
@@ -58,9 +67,15 @@ export default function LoginPage({ initialMode = 'login' }) {
   const [signupForm, setSignupForm] = useState({
     fullName: '',
     mobile: '',
+    gender: '',
+    dob: '',
     state: 'Karnataka',
     district: '',
-    taluk: ''
+    taluk: '',
+    category: 'General',
+    landHolding: '2.0',
+    cropType: 'Ragi & Cereals',
+    fruitsId: ''
   });
   const [signupOtpBoxes, setSignupOtpBoxes] = useState(['', '', '', '', '', '']);
   const [signupOtpSent, setSignupOtpSent] = useState(false);
@@ -173,10 +188,12 @@ export default function LoginPage({ initialMode = 'login' }) {
     if (signupError) setSignupError('');
   };
 
-  // SEND OTP FOR LOGIN
-  const handleSendLoginOtp = (e) => {
+  // SEND OTP FOR LOGIN (Verifies mobile presence in database)
+  const handleSendLoginOtp = async (e) => {
     e.preventDefault();
     setLoginError('');
+    setUserNotFound(false);
+    setDevOtpHint('');
 
     const cleanNum = loginMobile.replace(/\D/g, '');
     if (cleanNum.length !== 10 || !/^[6-9]\d{9}$/.test(cleanNum)) {
@@ -188,9 +205,52 @@ export default function LoginPage({ initialMode = 'login' }) {
       return;
     }
 
-    setLoginOtpSent(true);
-    setLoginCountdown(30);
-    setLoginOtpBoxes(['', '', '', '', '', '']);
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: cleanNum,
+          purpose: 'LOGIN_VERIFICATION'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404 || data.code === 'USER_NOT_FOUND') {
+          setUserNotFound(true);
+          setLoginError(
+            language === 'kn' && data.errorKn
+              ? data.errorKn
+              : (data.error || 'No account found with this mobile number. Please create an account first.')
+          );
+        } else {
+          setLoginError(data.error || 'Failed to send login OTP. Please try again.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      setUserNotFound(false);
+      setLoginOtpSent(true);
+      setSmsDelivered(Boolean(data.smsDelivered));
+      setLoginCountdown(data.resendCooldownSeconds || 30);
+      setLoginOtpBoxes(['', '', '', '', '', '']);
+      if (data.devOtp) {
+        setDevOtpHint(String(data.devOtp));
+      }
+    } catch (err) {
+      console.error('Login send-otp error:', err);
+      setLoginError(
+        language === 'kn'
+          ? 'ಸರ್ವರ್ ಸಂಪರ್ಕ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ.'
+          : 'Failed to connect to authentication server. Please check your connection.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // OTP BOX CHANGE HANDLER (Login)
@@ -226,7 +286,7 @@ export default function LoginPage({ initialMode = 'login' }) {
   };
 
   // VERIFY OTP FOR LOGIN
-  const handleVerifyLoginOtp = (e) => {
+  const handleVerifyLoginOtp = async (e) => {
     e.preventDefault();
     setLoginError('');
 
@@ -240,25 +300,110 @@ export default function LoginPage({ initialMode = 'login' }) {
       return;
     }
 
-    setLoginSuccess(true);
-    setTimeout(() => {
-      const destination = intendedDestination && intendedDestination !== 'landing' ? intendedDestination : 'dashboard';
-      setIntendedDestination('dashboard');
-      setCurrentPage(destination);
-    }, 900);
+    const cleanNum = loginMobile.replace(/\D/g, '');
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: cleanNum,
+          otpCode,
+          purpose: 'LOGIN_VERIFICATION'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404 || data.code === 'USER_NOT_FOUND') {
+          setUserNotFound(true);
+          setLoginError(
+            language === 'kn' && data.errorKn
+              ? data.errorKn
+              : (data.error || 'No account found with this mobile number. Please create an account first.')
+          );
+        } else {
+          setLoginError(data.error || 'Invalid OTP code. Please try again.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // STRICT VALIDATION: Require verified user and token
+      if (!data.token || !data.user) {
+        setUserNotFound(true);
+        setLoginError(
+          language === 'kn'
+            ? 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯ ಯಾವುದೇ ಖಾತೆ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ಹೊಸ ಖಾತೆ ರಚಿಸಿ.'
+            : 'No registered account found for this mobile number. Please create an account first.'
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      await loginUser(data.user, data.token);
+
+      setLoginSuccess(true);
+      setTimeout(() => {
+        const destination = intendedDestination && intendedDestination !== 'landing' ? intendedDestination : 'dashboard';
+        setIntendedDestination('dashboard');
+        setCurrentPage(destination);
+      }, 700);
+    } catch (err) {
+      console.error('Verify login OTP error:', err);
+      setLoginError(
+        language === 'kn'
+          ? 'ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ.'
+          : 'Verification failed. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // RESEND LOGIN OTP
-  const handleResendLoginOtp = () => {
-    setLoginCountdown(30);
-    setLoginOtpBoxes(['', '', '', '', '', '']);
+  const handleResendLoginOtp = async () => {
     setLoginError('');
+    setDevOtpHint('');
+    const cleanNum = loginMobile.replace(/\D/g, '');
+    try {
+      const response = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: cleanNum,
+          purpose: 'LOGIN_VERIFICATION'
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 404 || data.code === 'USER_NOT_FOUND') {
+          setUserNotFound(true);
+          setLoginError(
+            language === 'kn' && data.errorKn
+              ? data.errorKn
+              : (data.error || 'No account found with this mobile number. Please create an account first.')
+          );
+        } else {
+          setLoginError(data.error || 'Failed to resend OTP.');
+        }
+        return;
+      }
+      setLoginCountdown(data.resendCooldownSeconds || 60);
+      setLoginOtpBoxes(['', '', '', '', '', '']);
+      if (data.devOtp) setDevOtpHint(String(data.devOtp));
+    } catch (err) {
+      setLoginError('Network error resending OTP.');
+    }
   };
 
   // SEND OTP FOR SIGN UP / REGISTER
-  const handleSendSignupOtp = (e) => {
+  const handleSendSignupOtp = async (e) => {
     e.preventDefault();
     setSignupError('');
+    setUserAlreadyExists(false);
+    setDevOtpHint('');
 
     if (!signupForm.fullName.trim()) {
       setSignupError(language === 'kn' ? 'ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ನಮೂದಿಸಿ' : 'Please enter your full name');
@@ -285,9 +430,59 @@ export default function LoginPage({ initialMode = 'login' }) {
       return;
     }
 
-    setSignupOtpSent(true);
-    setSignupCountdown(30);
-    setSignupOtpBoxes(['', '', '', '', '', '']);
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: signupForm.fullName.trim(),
+          phoneNumber: cleanNum,
+          state: signupForm.state || 'Karnataka',
+          district: signupForm.district,
+          taluk: signupForm.taluk,
+          category: signupForm.category || 'General',
+          gender: signupForm.gender || undefined,
+          dob: signupForm.dob || undefined,
+          landHolding: signupForm.landHolding || '2.0',
+          cropType: signupForm.cropType || 'Ragi & Cereals',
+          fruitsId: signupForm.fruitsId?.trim() || undefined
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 409 || data.code === 'USER_ALREADY_EXISTS') {
+          setUserAlreadyExists(true);
+          setSignupError(
+            language === 'kn' && data.errorKn
+              ? data.errorKn
+              : (data.error || 'An account with this mobile number already exists. Please login.')
+          );
+        } else {
+          setSignupError(data.error || 'Failed to start registration.');
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      setUserAlreadyExists(false);
+      setSignupOtpSent(true);
+      setSmsDelivered(Boolean(data.smsDelivered));
+      setSignupCountdown(data.resendCooldownSeconds || 30);
+      setSignupOtpBoxes(['', '', '', '', '', '']);
+      if (data.devOtp) setDevOtpHint(String(data.devOtp));
+    } catch (err) {
+      console.error('Registration send-otp error:', err);
+      setSignupError(
+        language === 'kn'
+          ? 'ಸರ್ವರ್ ಸಂಪರ್ಕ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ.'
+          : 'Failed to connect to authentication server. Please check your connection.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // OTP BOX CHANGE HANDLER (Signup)
@@ -323,7 +518,7 @@ export default function LoginPage({ initialMode = 'login' }) {
   };
 
   // VERIFY OTP AND COMPLETE REGISTRATION
-  const handleVerifySignupOtp = (e) => {
+  const handleVerifySignupOtp = async (e) => {
     e.preventDefault();
     setSignupError('');
 
@@ -337,40 +532,82 @@ export default function LoginPage({ initialMode = 'login' }) {
       return;
     }
 
-    const formattedMobile = signupForm.mobile.startsWith('+91')
-      ? signupForm.mobile
-      : `+91 ${signupForm.mobile.replace(/\D/g, '')}`;
+    const cleanNum = signupForm.mobile.replace(/\D/g, '');
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: cleanNum,
+          otpCode,
+          purpose: 'REGISTRATION'
+        })
+      });
 
-    setProfile(prev => ({
-      ...prev,
-      name: signupForm.fullName,
-      mobile: formattedMobile || prev.mobile,
-      state: signupForm.state,
-      district: signupForm.district,
-      taluk: signupForm.taluk
-    }));
+      const data = await response.json();
 
-    setWizardData(prev => ({
-      ...prev,
-      fullName: signupForm.fullName,
-      state: signupForm.state,
-      district: signupForm.district,
-      taluk: signupForm.taluk
-    }));
+      if (!response.ok) {
+        setSignupError(data.error || 'Invalid OTP code. Please check and try again.');
+        setIsLoading(false);
+        return;
+      }
 
-    setSignupSuccess(true);
-    setTimeout(() => {
-      const destination = intendedDestination && intendedDestination !== 'landing' ? intendedDestination : 'dashboard';
-      setIntendedDestination('dashboard');
-      setCurrentPage(destination);
-    }, 1000);
+      if (!data.token || !data.user) {
+        setSignupError(
+          language === 'kn'
+            ? 'ಖಾತೆ ನೋಂದಣಿ ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'
+            : 'Account registration verification failed. Please try again.'
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      await loginUser(data.user, data.token);
+
+      setSignupSuccess(true);
+      setTimeout(() => {
+        const destination = intendedDestination && intendedDestination !== 'landing' ? intendedDestination : 'dashboard';
+        setIntendedDestination('dashboard');
+        setCurrentPage(destination);
+      }, 700);
+    } catch (err) {
+      console.error('Verify registration OTP error:', err);
+      setSignupError(
+        language === 'kn'
+          ? 'ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು ನಂತರ ಪ್ರಯತ್ನಿಸಿ.'
+          : 'Verification failed. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // RESEND SIGNUP OTP
-  const handleResendSignupOtp = () => {
-    setSignupCountdown(30);
-    setSignupOtpBoxes(['', '', '', '', '', '']);
+  const handleResendSignupOtp = async () => {
     setSignupError('');
+    setDevOtpHint('');
+    const cleanNum = signupForm.mobile.replace(/\D/g, '');
+    try {
+      const response = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: cleanNum,
+          purpose: 'REGISTRATION'
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setSignupError(data.error || 'Failed to resend OTP.');
+        return;
+      }
+      setSignupCountdown(data.resendCooldownSeconds || 60);
+      setSignupOtpBoxes(['', '', '', '', '', '']);
+      if (data.devOtp) setDevOtpHint(String(data.devOtp));
+    } catch (err) {
+      setSignupError('Network error resending OTP.');
+    }
   };
 
   // Voice narration helper
@@ -390,12 +627,12 @@ export default function LoginPage({ initialMode = 'login' }) {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-cream-100 font-sans selection:bg-[#7C1A22] selection:text-white">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-cream-100 font-sans selection:bg-[#6C151E] selection:text-white">
 
       {/* ============================================================ */}
       {/* LEFT PANEL: Matches 02_Login_Page.png Design Mockup          */}
       {/* ============================================================ */}
-      <div className="relative w-full lg:w-[46%] xl:w-[44%] lg:min-h-screen flex flex-col justify-between p-4 sm:p-8 lg:p-12 overflow-hidden bg-[#0A3D2A] text-white">
+      <div className="relative w-full lg:w-[46%] xl:w-[44%] lg:min-h-screen flex flex-col justify-between p-4 sm:p-8 lg:p-12 overflow-hidden bg-[#0F3D3A] text-white">
 
         {/* Top: Home Navigation Button */}
         <div className="relative z-10 flex items-center justify-between">
@@ -519,14 +756,14 @@ export default function LoginPage({ initialMode = 'login' }) {
           <div className="flex items-center p-1 bg-stone-200/80 rounded-full border border-stone-300 shadow-inner">
             <button
               onClick={() => toggleLanguage('kn')}
-              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all ${language === 'kn' ? 'bg-[#0A3D2A] text-white shadow-xs' : 'text-stone-700 hover:text-stone-900'
+              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all ${language === 'kn' ? 'bg-[#0F3D3A] text-white shadow-xs' : 'text-stone-700 hover:text-stone-900'
                 }`}
             >
               ಕನ್ನಡ
             </button>
             <button
               onClick={() => toggleLanguage('en')}
-              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all ${language === 'en' ? 'bg-[#0A3D2A] text-white shadow-xs' : 'text-stone-700 hover:text-stone-900'
+              className={`px-3.5 py-1 rounded-full text-xs font-bold transition-all ${language === 'en' ? 'bg-[#0F3D3A] text-white shadow-xs' : 'text-stone-700 hover:text-stone-900'
                 }`}
             >
               English
@@ -562,9 +799,51 @@ export default function LoginPage({ initialMode = 'login' }) {
 
           {/* Status Notifications */}
           {(loginError || signupError) && (
-            <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{loginError || signupError}</span>
+            <div className="mb-4 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold space-y-2.5">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
+                <span className="leading-snug">{loginError || signupError}</span>
+              </div>
+              {userNotFound && (
+                <div className="pt-2 border-t border-red-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-[11px] text-red-800 font-normal">
+                    {language === 'kn' ? 'ಖಾತೆ ಇಲ್ಲವೇ? ಈಗಲೇ ಹೊಸ ರೈತ ಖಾತೆ ತೆರೆಯಿರಿ:' : 'No account registered? Create one now:'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(true);
+                      setSignupForm(prev => ({ ...prev, mobile: loginMobile.replace(/\D/g, '') }));
+                      setLoginError('');
+                      setUserNotFound(false);
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#6C151E] hover:bg-[#521016] text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                  >
+                    <span>{language === 'kn' ? 'ಹೊಸ ಖಾತೆ ರಚಿಸಿ' : 'Create Account'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {userAlreadyExists && (
+                <div className="pt-2 border-t border-red-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-[11px] text-red-800 font-normal">
+                    {language === 'kn' ? 'ಈಗಾಗಲೇ ಖಾತೆ ಇದೆಯೇ? ಲಾಗಿನ್ ಮಾಡಿ:' : 'Account already exists? Login now:'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(false);
+                      setLoginMobile(signupForm.mobile.replace(/\D/g, ''));
+                      setSignupError('');
+                      setUserAlreadyExists(false);
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#0F3D3A] hover:bg-[#072d1f] text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                  >
+                    <span>{language === 'kn' ? 'ಲಾಗಿನ್ ಮಾಡಿ' : 'Login'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -574,7 +853,7 @@ export default function LoginPage({ initialMode = 'login' }) {
               <span>
                 {language === 'kn'
                   ? 'ಒಟಿಪಿ ಯಶಸ್ವಿಯಾಗಿ ದೃಢೀಕರಿಸಲಾಗಿದೆ! ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ತೆರಳಲಾಗುತ್ತಿದೆ...'
-                  : 'OTP verified successfully! Loading your dashboard...'}
+                  : 'OTP verified successfully! Loading your personalized dashboard...'}
               </span>
             </div>
           )}
@@ -589,7 +868,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                 <form onSubmit={handleSendLoginOtp} className="space-y-5">
                   <div>
                     <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
-                      {t.mobileNumber} <span className="text-[#7C1A22]">*</span>
+                      {t.mobileNumber} <span className="text-[#6C151E]">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-stone-700 font-bold text-sm">
@@ -614,7 +893,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         }}
                         onChange={handleLoginMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
-                        className="w-full pl-14 pr-20 py-3.5 bg-white border border-stone-300 rounded-2xl text-stone-900 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-base tracking-wider"
+                        className="w-full pl-14 pr-20 py-3.5 bg-white border border-stone-300 rounded-2xl text-stone-900 font-bold placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0F3D3A] transition-all shadow-xs text-base tracking-wider"
                         required
                         autoFocus
                       />
@@ -631,10 +910,20 @@ export default function LoginPage({ initialMode = 'login' }) {
 
                   <button
                     type="submit"
-                    className="w-full py-4 px-4 rounded-2xl bg-[#7C1A22] hover:bg-[#66151C] text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2"
+                    disabled={isLoading}
+                    className="w-full py-4 px-4 rounded-2xl bg-[#6C151E] hover:bg-[#521016] disabled:bg-stone-400 text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2"
                   >
-                    <span>{language === 'kn' ? 'ಒಟಿಪಿ ಪಡೆಯಿರಿ' : 'Get OTP'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{language === 'kn' ? 'ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...' : 'Checking Number...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{language === 'kn' ? 'ಒಟಿಪಿ ಪಡೆಯಿರಿ' : 'Get OTP'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
 
                   <div className="pt-4 text-center text-sm text-stone-600">
@@ -646,7 +935,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         setLoginError('');
                         setSignupError('');
                       }}
-                      className="font-bold text-[#7C1A22] underline hover:text-[#5a1322] transition-colors ml-1"
+                      className="font-bold text-[#6C151E] underline hover:text-[#5a1322] transition-colors ml-1"
                     >
                       {language === 'kn' ? 'ಹೊಸ ಖಾತೆ ರಚಿಸಿ' : 'Create Account'}
                     </button>
@@ -662,25 +951,57 @@ export default function LoginPage({ initialMode = 'login' }) {
                         <Check className="w-4 h-4 text-emerald-800" />
                       </div>
                       <div>
-                        <span className="text-stone-500 block text-[10px] uppercase font-bold tracking-wider">SMS Dispatched</span>
+                        <span className="text-stone-500 block text-[10px] uppercase font-bold tracking-wider">
+                          {smsDelivered
+                            ? (language === 'kn' ? 'ಎಸ್‌ಎಂಎಸ್ ಕಳುಹಿಸಲಾಗಿದೆ' : 'SMS Dispatched to Phone')
+                            : (language === 'kn' ? 'ಪರೀಕ್ಷಾ ಮೋಡ್ • ಕೆಳಗಿನ ಒಟಿಪಿ ಬಳಸಿ' : 'Test Mode • Use On-Screen OTP')}
+                        </span>
                         <span className="font-bold text-emerald-950 text-sm">+91 {loginMobile.replace(/\D/g, '')}</span>
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setLoginOtpSent(false); setLoginError(''); }}
-                      className="text-xs font-bold text-[#0A3D2A] hover:text-[#7C1A22] flex items-center gap-1 underline"
+                      onClick={() => { setLoginOtpSent(false); setLoginError(''); setDevOtpHint(''); }}
+                      className="text-xs font-bold text-[#0F3D3A] hover:text-[#6C151E] flex items-center gap-1 underline"
                     >
                       <Edit2 className="w-3 h-3" />
                       <span>{t.changeMobile}</span>
                     </button>
                   </div>
 
+                  {/* Dev / Test OTP Banner if available */}
+                  {devOtpHint && (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span>{language === 'kn' ? 'ನಿಮ್ಮ ಪರಿಶೀಲನಾ ಒಟಿಪಿ ಕೋಡ್:' : 'Your 6-Digit OTP Code:'}</span>
+                        </span>
+                        <span className="font-mono font-black text-base text-amber-950 bg-white px-2.5 py-0.5 rounded-lg border border-amber-300 tracking-widest">
+                          {devOtpHint}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-amber-200/60 text-[11px] text-amber-800">
+                        <span>{language === 'kn' ? 'ರಿಯಲ್ ಎಸ್‌ಎಂಎಸ್ ಗೇಟ್‌ವೇ ಇಲ್ಲದಿದ್ದರೂ ತಕ್ಷಣ ಲಾಗಿನ್ ಆಗಬಹುದು (ಅಥವಾ 123456).' : 'Fast2SMS uncharged: Use this code or standard 123456 to sign in.'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const digits = (devOtpHint || '123456').slice(0, 6).split('');
+                            setLoginOtpBoxes(digits);
+                          }}
+                          className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex-shrink-0 ml-2"
+                        >
+                          {language === 'kn' ? 'ಸ್ವಯಂ ಭರ್ತಿ' : 'Auto Fill'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 6 Individual Interactive OTP Boxes */}
                   <div>
                     <div className="flex items-center justify-between mb-2.5">
                       <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                        {t.enterOtp} <span className="text-[#7C1A22]">*</span>
+                        {t.enterOtp} <span className="text-[#6C151E]">*</span>
                       </label>
                       <span className="text-[11px] text-stone-500 font-medium">
                         {language === 'kn' ? '6-ಅಂಕಿಯ ಒಟಿಪಿ ಕೋಡ್' : '6-digit SMS verification code'}
@@ -699,7 +1020,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                           onChange={(e) => handleLoginBoxChange(idx, e.target.value)}
                           onKeyDown={(e) => handleLoginBoxKeyDown(idx, e)}
                           onPaste={handleLoginBoxPaste}
-                          className="w-full h-11 sm:h-14 text-center font-mono font-bold text-lg sm:text-2xl bg-white border-2 border-stone-300 focus:border-[#0A3D2A] rounded-lg sm:rounded-xl text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A]/20 transition-all shadow-xs p-0"
+                          className="w-full h-11 sm:h-14 text-center font-mono font-bold text-lg sm:text-2xl bg-white border-2 border-stone-300 focus:border-[#0F3D3A] rounded-lg sm:rounded-xl text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#0F3D3A]/20 transition-all shadow-xs p-0"
                           autoFocus={idx === 0}
                         />
                       ))}
@@ -718,7 +1039,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         <button
                           type="button"
                           onClick={handleResendLoginOtp}
-                          className="font-bold text-[#7C1A22] hover:text-[#66151C] flex items-center gap-1 transition-colors underline"
+                          className="font-bold text-[#6C151E] hover:text-[#521016] flex items-center gap-1 transition-colors underline"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>{t.resendOtp}</span>
@@ -730,10 +1051,20 @@ export default function LoginPage({ initialMode = 'login' }) {
                   {/* Verify & Login CTA */}
                   <button
                     type="submit"
-                    className="w-full py-4 px-4 rounded-2xl bg-[#7C1A22] hover:bg-[#66151C] text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                    disabled={isLoading}
+                    className="w-full py-4 px-4 rounded-2xl bg-[#6C151E] hover:bg-[#521016] disabled:bg-stone-400 text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2"
                   >
-                    <span>{t.verifyAndLogin}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{language === 'kn' ? 'ದೃಢೀಕರಿಸಲಾಗುತ್ತಿದೆ...' : 'Verifying & Logging In...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{t.verifyAndLogin}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </form>
               )}
@@ -750,7 +1081,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                   {/* Full Name */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      {t.fullName} <span className="text-[#7C1A22]">*</span>
+                      {t.fullName} <span className="text-[#6C151E]">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500">
@@ -761,7 +1092,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         value={signupForm.fullName}
                         onChange={(e) => setSignupForm({ ...signupForm, fullName: e.target.value })}
                         placeholder={language === 'kn' ? 'ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು' : 'Your full name'}
-                        className="w-full pl-10 pr-3.5 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-sm"
+                        className="w-full pl-10 pr-3.5 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0F3D3A] transition-all shadow-xs text-sm"
                         required
                         autoFocus
                       />
@@ -771,7 +1102,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                   {/* Mobile Number */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      {t.mobileNumber} <span className="text-[#7C1A22]">*</span>
+                      {t.mobileNumber} <span className="text-[#6C151E]">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-700 font-bold text-sm">
@@ -796,7 +1127,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         }}
                         onChange={handleSignupMobileChange}
                         placeholder={language === 'kn' ? '10-ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ' : 'Enter 10-digit mobile number'}
-                        className="w-full pl-14 pr-20 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A] transition-all shadow-xs text-sm"
+                        className="w-full pl-14 pr-20 py-3 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#0F3D3A] transition-all shadow-xs text-sm"
                         required
                       />
                       <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center gap-1.5 pointer-events-none">
@@ -807,6 +1138,38 @@ export default function LoginPage({ initialMode = 'login' }) {
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Gender and DOB (Optional) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                        {t.gender || (language === 'kn' ? 'ಲಿಂಗ' : 'Gender')}
+                      </label>
+                      <select
+                        value={signupForm.gender}
+                        onChange={(e) => setSignupForm(prev => ({ ...prev, gender: e.target.value }))}
+                        className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer shadow-xs"
+                      >
+                        <option value="">{language === 'kn' ? '-- ಲಿಂಗ (ಐಚ್ಛಿಕ) --' : '-- Gender (Optional) --'}</option>
+                        <option value="Male">{language === 'kn' ? 'ಪುರುಷ (Male)' : 'Male'}</option>
+                        <option value="Female">{language === 'kn' ? 'ಮಹಿಳೆ (Female)' : 'Female'}</option>
+                        <option value="Other">{language === 'kn' ? 'ಇತರೆ (Other)' : 'Other'}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                        {t.dateOfBirth || (language === 'kn' ? 'ಹುಟ್ಟಿದ ದಿನಾಂಕ' : 'Date of Birth')}
+                      </label>
+                      <input
+                        type="date"
+                        value={signupForm.dob}
+                        max={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => setSignupForm(prev => ({ ...prev, dob: e.target.value }))}
+                        className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none shadow-xs"
+                      />
                     </div>
                   </div>
 
@@ -822,12 +1185,12 @@ export default function LoginPage({ initialMode = 'login' }) {
                     {/* State Dropdown */}
                     <div>
                       <label className="block text-xs font-bold text-stone-600 mb-1">
-                        {t.state || (language === 'kn' ? 'ರಾಜ್ಯ' : 'State')} <span className="text-[#7C1A22]">*</span>
+                        {t.state || (language === 'kn' ? 'ರಾಜ್ಯ' : 'State')} <span className="text-[#6C151E]">*</span>
                       </label>
                       <select
                         value={signupForm.state}
                         onChange={handleStateChange}
-                        className="w-full px-3 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0A3D2A] focus:outline-none cursor-pointer"
+                        className="w-full px-3 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer"
                       >
                         {getStates().map((st) => (
                           <option key={st} value={st}>{st}</option>
@@ -840,12 +1203,12 @@ export default function LoginPage({ initialMode = 'login' }) {
                       {/* District Dropdown */}
                       <div>
                         <label className="block text-xs font-bold text-stone-600 mb-1">
-                          {t.district || (language === 'kn' ? 'ಜಿಲ್ಲೆ' : 'District')} <span className="text-[#7C1A22]">*</span>
+                          {t.district || (language === 'kn' ? 'ಜಿಲ್ಲೆ' : 'District')} <span className="text-[#6C151E]">*</span>
                         </label>
                         <select
                           value={signupForm.district}
                           onChange={handleDistrictChange}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0A3D2A] focus:outline-none cursor-pointer"
+                          className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer"
                           required
                         >
                           <option value="">{language === 'kn' ? '-- ಜಿಲ್ಲೆ ಆಯ್ಕೆಮಾಡಿ --' : '-- Select District --'}</option>
@@ -858,13 +1221,13 @@ export default function LoginPage({ initialMode = 'login' }) {
                       {/* Taluk Dropdown */}
                       <div>
                         <label className="block text-xs font-bold text-stone-600 mb-1">
-                          {t.taluk || (language === 'kn' ? 'ತಾಲೂಕು' : 'Taluk')} <span className="text-[#7C1A22]">*</span>
+                          {t.taluk || (language === 'kn' ? 'ತಾಲೂಕು' : 'Taluk')} <span className="text-[#6C151E]">*</span>
                         </label>
                         <select
                           value={signupForm.taluk}
                           onChange={handleTalukChange}
                           disabled={!signupForm.district}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0A3D2A] focus:outline-none cursor-pointer disabled:bg-stone-100 disabled:text-stone-400"
+                          className="w-full px-3 py-2.5 bg-white border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer disabled:bg-stone-100 disabled:text-stone-400"
                           required
                         >
                           <option value="">{language === 'kn' ? '-- ತಾಲೂಕು ಆಯ್ಕೆಮಾಡಿ --' : '-- Select Taluk --'}</option>
@@ -876,13 +1239,108 @@ export default function LoginPage({ initialMode = 'login' }) {
                     </div>
                   </div>
 
+                  {/* Farm Details Card (Personalizes Schemes Immediately) */}
+                  <div className="p-4 rounded-2xl bg-white border border-stone-300 space-y-3.5 shadow-xs">
+                    <div className="flex items-center justify-between text-xs font-bold text-stone-800 uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{language === 'kn' ? 'ಕೃಷಿ ವಿವರಗಳು (ವೈಯಕ್ತಿಕ ಯೋಜನೆಗಳು)' : 'Farm Details (For Personalized Schemes)'}</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Category */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-600 mb-1">
+                          {language === 'kn' ? 'ವರ್ಗ' : 'Category'}
+                        </label>
+                        <select
+                          value={signupForm.category}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, category: e.target.value }))}
+                          className="w-full px-2.5 py-2 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer"
+                        >
+                          <option value="General">General</option>
+                          <option value="OBC">OBC</option>
+                          <option value="SC">SC</option>
+                          <option value="ST">ST</option>
+                        </select>
+                      </div>
+
+                      {/* Land Holding */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-600 mb-1">
+                          {language === 'kn' ? 'ಜಮೀನು (ಎಕರೆ)' : 'Land Holding'}
+                        </label>
+                        <select
+                          value={signupForm.landHolding}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, landHolding: e.target.value }))}
+                          className="w-full px-2.5 py-2 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer"
+                        >
+                          <option value="1.0">1.0 Acre (Marginal)</option>
+                          <option value="2.0">2.0 Acres (Small)</option>
+                          <option value="3.5">3.5 Acres (Small)</option>
+                          <option value="5.0">5.0 Acres (Medium)</option>
+                          <option value="7.5">7.5 Acres (Large)</option>
+                          <option value="10.0">10.0+ Acres (Large)</option>
+                        </select>
+                      </div>
+
+                      {/* Primary Crop */}
+                      <div>
+                        <label className="block text-xs font-bold text-stone-600 mb-1">
+                          {language === 'kn' ? 'ಮುಖ್ಯ ಬೆಳೆ' : 'Primary Crop'}
+                        </label>
+                        <select
+                          value={signupForm.cropType}
+                          onChange={(e) => setSignupForm(prev => ({ ...prev, cropType: e.target.value }))}
+                          className="w-full px-2.5 py-2 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none cursor-pointer"
+                        >
+                          <option value="Ragi & Cereals">Ragi / Millets</option>
+                          <option value="Paddy & Rice">Paddy / Rice</option>
+                          <option value="Sugarcane & Commercial">Sugarcane / Commercial</option>
+                          <option value="Vegetables & Fruits">Vegetables / Fruits</option>
+                          <option value="Pulses & Oilseeds">Pulses / Oilseeds</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Optional Authentic FRUITS ID */}
+                    <div className="pt-2 border-t border-stone-200/70">
+                      <label className="block text-xs font-bold text-stone-600 mb-1">
+                        {language === 'kn' ? 'ಕರ್ನಾಟಕ FRUITS ಐಡಿ (FID - ಐಚ್ಛಿಕ)' : 'Karnataka FRUITS ID (FID - Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={signupForm.fruitsId || ''}
+                        onChange={(e) => setSignupForm(prev => ({ ...prev, fruitsId: e.target.value.trim() }))}
+                        placeholder={language === 'kn' ? 'ಉದಾ: 10048291 (ಇದ್ದಲ್ಲಿ ಮಾತ್ರ ನಮೂದಿಸಿ)' : 'e.g. 10048291 (enter only if already registered)'}
+                        className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-stone-900 font-medium text-xs focus:ring-2 focus:ring-[#0F3D3A] focus:outline-none font-mono"
+                      />
+                      <span className="text-[10px] text-stone-500 mt-1 block">
+                        {language === 'kn'
+                          ? 'ನಿಮ್ಮ ಬಳಿ FRUITS ID ಇಲ್ಲದಿದ್ದರೆ ಖಾಲಿ ಬಿಡಿ. ಯಾವುದೇ ನಕಲಿ ಐಡಿ ಸೃಷ್ಟಿಯಾಗುವುದಿಲ್ಲ.'
+                          : 'Leave blank if not registered on fruits.karnataka.gov.in. No fake ID will be generated.'}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Send OTP & Register CTA Button */}
                   <button
                     type="submit"
-                    className="w-full py-4 px-4 rounded-2xl bg-[#7C1A22] hover:bg-[#66151C] text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2"
+                    disabled={isLoading}
+                    className="w-full py-4 px-4 rounded-2xl bg-[#6C151E] hover:bg-[#521016] disabled:bg-stone-400 text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 mt-2"
                   >
-                    <span>{language === 'kn' ? 'ಒಟಿಪಿ ಪಡೆಯಿರಿ' : 'Get OTP & Register'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{language === 'kn' ? 'ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ...' : 'Registering...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{language === 'kn' ? 'ಒಟಿಪಿ ಪಡೆಯಿರಿ' : 'Get OTP & Register'}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
 
                   {/* Back to Login */}
@@ -895,7 +1353,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         setSignupError('');
                         setLoginError('');
                       }}
-                      className="font-bold text-[#7C1A22] underline hover:text-[#5a1322] transition-colors ml-1"
+                      className="font-bold text-[#6C151E] underline hover:text-[#5a1322] transition-colors ml-1"
                     >
                       {language === 'kn' ? 'ಲಾಗಿನ್ ಮಾಡಿ' : 'Login'}
                     </button>
@@ -913,23 +1371,52 @@ export default function LoginPage({ initialMode = 'login' }) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => { setSignupOtpSent(false); setSignupError(''); }}
-                        className="text-xs font-bold text-[#0A3D2A] hover:text-[#7C1A22] flex items-center gap-1 underline"
+                        onClick={() => { setSignupOtpSent(false); setSignupError(''); setDevOtpHint(''); }}
+                        className="text-xs font-bold text-[#0F3D3A] hover:text-[#6C151E] flex items-center gap-1 underline"
                       >
                         <Edit2 className="w-3 h-3" />
                         <span>{language === 'kn' ? 'ತಿದ್ದುಪಡಿ' : 'Edit'}</span>
                       </button>
                     </div>
-                    <div className="text-stone-600 text-[11px]">
-                      <span>{signupForm.taluk}, {signupForm.district}, {signupForm.state}</span>
+                    <div className="text-stone-600 text-[11px] space-y-0.5">
+                      <p>📍 {signupForm.taluk}, {signupForm.district}, {signupForm.state}</p>
+                      <p className="text-emerald-900 font-semibold">🌾 {signupForm.landHolding} Acres • {signupForm.category} • {signupForm.cropType}</p>
                     </div>
                   </div>
+
+                  {/* Dev / Test OTP Banner if available */}
+                  {devOtpHint && (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <span>{language === 'kn' ? 'ನಿಮ್ಮ ಪರಿಶೀಲನಾ ಒಟಿಪಿ ಕೋಡ್:' : 'Your 6-Digit OTP Code:'}</span>
+                        </span>
+                        <span className="font-mono font-black text-base text-amber-950 bg-white px-2.5 py-0.5 rounded-lg border border-amber-300 tracking-widest">
+                          {devOtpHint}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-amber-200/60 text-[11px] text-amber-800">
+                        <span>{language === 'kn' ? 'ರಿಯಲ್ ಎಸ್‌ಎಂಎಸ್ ಗೇಟ್‌ವೇ ಇಲ್ಲದಿದ್ದರೂ ತಕ್ಷಣ ನೋಂದಾಯಿಸಬಹುದು (ಅಥವಾ 123456).' : 'Fast2SMS uncharged: Use this code or standard 123456 to register.'}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const digits = (devOtpHint || '123456').slice(0, 6).split('');
+                            setSignupOtpBoxes(digits);
+                          }}
+                          className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex-shrink-0 ml-2"
+                        >
+                          {language === 'kn' ? 'ಸ್ವಯಂ ಭರ್ತಿ' : 'Auto Fill'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 6 Individual Interactive OTP Boxes */}
                   <div>
                     <div className="flex items-center justify-between mb-2.5">
                       <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                        {t.enterOtp} <span className="text-[#7C1A22]">*</span>
+                        {t.enterOtp} <span className="text-[#6C151E]">*</span>
                       </label>
                       <span className="text-[11px] text-stone-500 font-medium">
                         {language === 'kn' ? '6-ಅಂಕಿಯ ಒಟಿಪಿ ಕೋಡ್' : '6-digit SMS verification code'}
@@ -948,7 +1435,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                           onChange={(e) => handleSignupBoxChange(idx, e.target.value)}
                           onKeyDown={(e) => handleSignupBoxKeyDown(idx, e)}
                           onPaste={handleSignupBoxPaste}
-                          className="w-full h-11 sm:h-14 text-center font-mono font-bold text-lg sm:text-2xl bg-white border-2 border-stone-300 focus:border-[#0A3D2A] rounded-lg sm:rounded-xl text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#0A3D2A]/20 transition-all shadow-xs p-0"
+                          className="w-full h-11 sm:h-14 text-center font-mono font-bold text-lg sm:text-2xl bg-white border-2 border-stone-300 focus:border-[#0F3D3A] rounded-lg sm:rounded-xl text-stone-900 focus:outline-none focus:ring-2 focus:ring-[#0F3D3A]/20 transition-all shadow-xs p-0"
                           autoFocus={idx === 0}
                         />
                       ))}
@@ -967,7 +1454,7 @@ export default function LoginPage({ initialMode = 'login' }) {
                         <button
                           type="button"
                           onClick={handleResendSignupOtp}
-                          className="font-bold text-[#7C1A22] hover:text-[#66151C] flex items-center gap-1 transition-colors underline"
+                          className="font-bold text-[#6C151E] hover:text-[#521016] flex items-center gap-1 transition-colors underline"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                           <span>{t.resendOtp}</span>
@@ -979,10 +1466,20 @@ export default function LoginPage({ initialMode = 'login' }) {
                   {/* Complete Registration CTA */}
                   <button
                     type="submit"
-                    className="w-full py-4 px-4 rounded-2xl bg-[#7C1A22] hover:bg-[#66151C] text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                    disabled={isLoading}
+                    className="w-full py-4 px-4 rounded-2xl bg-[#6C151E] hover:bg-[#521016] disabled:bg-stone-400 text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2"
                   >
-                    <span>{t.verifyAndRegister}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{language === 'kn' ? 'ದೃಢೀಕರಿಸಲಾಗುತ್ತಿದೆ...' : 'Verifying & Registering...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{t.verifyAndRegister}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </form>
               )}

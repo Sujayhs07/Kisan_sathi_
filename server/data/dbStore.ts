@@ -86,6 +86,15 @@ export function hashOtp(otp: string, salt: string): string {
   return crypto.createHmac('sha256', salt).update(otp).digest('hex');
 }
 
+export function calculateAgeFromDob(dobStr?: string): number | undefined {
+  if (!dobStr) return undefined;
+  const d = new Date(dobStr);
+  if (isNaN(d.getTime())) return undefined;
+  const diffMs = Date.now() - d.getTime();
+  const age = Math.floor(diffMs / (365.25 * 24 * 3600 * 1000));
+  return age >= 0 && age <= 120 ? age : undefined;
+}
+
 class AppDatabase {
   private data: DatabaseSchema;
 
@@ -177,6 +186,16 @@ class AppDatabase {
       }
       if (u.smsRemindersEnabled === undefined) {
         u.smsRemindersEnabled = false;
+        dirty = true;
+      }
+      // Never synthesize or retain fake unauthentic auto-generated FRUITS IDs
+      if (u.fruitsId && (u.fruitsId.startsWith('KA-FRUITS-') || u.fruitsId.startsWith('FID-KA-'))) {
+        delete u.fruitsId;
+        dirty = true;
+      }
+      // Never retain legacy unentered hardcoded DOB/gender mock defaults
+      if (u.dob === '25 Aug 2004') {
+        delete u.dob;
         dirty = true;
       }
     }
@@ -408,7 +427,19 @@ class AppDatabase {
     phoneNumber: string; // normalized E.164
     password: string;
     preferredLanguage?: 'en' | 'kn';
+    state?: string;
     district?: string;
+    taluk?: string;
+    category?: string;
+    dob?: string;
+    age?: number;
+    gender?: string;
+    landHolding?: string;
+    landType?: string;
+    cropType?: string;
+    irrigationType?: string;
+    annualIncome?: string;
+    fruitsId?: string;
   }): StoredUser {
     const cleanUsername = validateUsername(params.username).normalized;
     const existingUnverified = this.data.users.find(
@@ -426,7 +457,25 @@ class AppDatabase {
       existingUnverified.fullName = params.fullName.trim();
       existingUnverified.phoneNumber = params.phoneNumber;
       existingUnverified.preferredLanguage = params.preferredLanguage || 'kn';
-      existingUnverified.district = params.district || existingUnverified.district || '';
+      if (params.state) existingUnverified.state = params.state;
+      if (params.district) existingUnverified.district = params.district;
+      if (params.taluk) existingUnverified.taluk = params.taluk;
+      if (params.category) existingUnverified.category = params.category;
+      if (params.dob !== undefined) {
+        existingUnverified.dob = params.dob && params.dob.trim() ? params.dob.trim() : undefined;
+        existingUnverified.age = params.age ?? calculateAgeFromDob(params.dob);
+      } else if (params.age !== undefined) {
+        existingUnverified.age = params.age;
+      }
+      if (params.gender !== undefined) {
+        existingUnverified.gender = params.gender && params.gender.trim() ? params.gender.trim() : undefined;
+      }
+      if (params.landHolding) existingUnverified.landHolding = params.landHolding;
+      if (params.landType) existingUnverified.landType = params.landType;
+      if (params.cropType) existingUnverified.cropType = params.cropType;
+      if (params.irrigationType) existingUnverified.irrigationType = params.irrigationType;
+      if (params.annualIncome) existingUnverified.annualIncome = params.annualIncome;
+      existingUnverified.fruitsId = params.fruitsId && params.fruitsId.trim() ? params.fruitsId.trim() : undefined;
       existingUnverified.passwordHash = hash;
       existingUnverified.salt = salt;
       existingUnverified.updatedAt = now;
@@ -441,7 +490,19 @@ class AppDatabase {
       phoneNumber: params.phoneNumber,
       phoneVerified: false,
       preferredLanguage: params.preferredLanguage || 'kn',
+      dob: params.dob && params.dob.trim() ? params.dob.trim() : undefined,
+      age: params.age ?? calculateAgeFromDob(params.dob),
+      gender: params.gender && params.gender.trim() ? params.gender.trim() : undefined,
+      state: params.state || 'Karnataka',
       district: params.district || '',
+      taluk: params.taluk || '',
+      category: params.category || 'General',
+      landHolding: params.landHolding || '2.0',
+      landType: params.landType || 'Marginal (< 2.5 Acres)',
+      cropType: params.cropType || 'Ragi & Cereals',
+      irrigationType: params.irrigationType || 'Borewell & Rainfed',
+      annualIncome: params.annualIncome || 'Below 1 Lakh',
+      fruitsId: params.fruitsId && params.fruitsId.trim() ? params.fruitsId.trim() : undefined,
       timezone: 'Asia/Kolkata',
       smsRemindersEnabled: false,
       accountStatus: 'PENDING_VERIFICATION',
@@ -458,16 +519,37 @@ class AppDatabase {
 
   public updateUserProfile(
     id: string,
-    updates: Partial<
-      Pick<User, 'fullName' | 'preferredLanguage' | 'district' | 'timezone' | 'smsRemindersEnabled'>
-    >
+    updates: Partial<User>
   ): StoredUser | null {
     const user = this.findUserById(id);
     if (!user) return null;
 
     if (updates.fullName !== undefined) user.fullName = updates.fullName.trim();
     if (updates.preferredLanguage !== undefined) user.preferredLanguage = updates.preferredLanguage;
+    if (updates.state !== undefined) user.state = updates.state;
     if (updates.district !== undefined) user.district = updates.district;
+    if (updates.taluk !== undefined) user.taluk = updates.taluk;
+    if (updates.category !== undefined) user.category = updates.category;
+    if (updates.dob !== undefined) {
+      user.dob = updates.dob && String(updates.dob).trim() ? String(updates.dob).trim() : undefined;
+      if (updates.age === undefined && user.dob) {
+        user.age = calculateAgeFromDob(user.dob);
+      } else if (updates.age === undefined && !user.dob) {
+        user.age = undefined;
+      }
+    }
+    if (updates.age !== undefined) {
+      user.age = typeof updates.age === 'number' ? updates.age : (updates.age ? Number(updates.age) : undefined);
+    }
+    if (updates.gender !== undefined) {
+      user.gender = updates.gender && String(updates.gender).trim() ? String(updates.gender).trim() : undefined;
+    }
+    if (updates.landHolding !== undefined) user.landHolding = updates.landHolding;
+    if (updates.landType !== undefined) user.landType = updates.landType;
+    if (updates.cropType !== undefined) user.cropType = updates.cropType;
+    if (updates.irrigationType !== undefined) user.irrigationType = updates.irrigationType;
+    if (updates.annualIncome !== undefined) user.annualIncome = updates.annualIncome;
+    if (updates.fruitsId !== undefined) user.fruitsId = updates.fruitsId;
     if (updates.timezone !== undefined) user.timezone = updates.timezone;
     if (updates.smsRemindersEnabled !== undefined) {
       user.smsRemindersEnabled = updates.smsRemindersEnabled;

@@ -258,6 +258,87 @@ async function run() {
     });
   }
 
+  // Test 11: Unregistered Mobile Number Login Block (Bug Fix Validation)
+  await check(
+    'Unregistered Mobile Login Block (/api/auth/send-otp LOGIN_VERIFICATION)',
+    async () => {
+      const unregisteredPhone = '9999900001';
+      const res = await req('POST', '/api/auth/send-otp', {
+        phoneNumber: unregisteredPhone,
+        purpose: 'LOGIN_VERIFICATION'
+      });
+      if (res.status !== 404) {
+        throw new Error(`Expected HTTP 404 for unregistered user, got status ${res.status}`);
+      }
+      if (res.data?.code !== 'USER_NOT_FOUND') {
+        throw new Error(`Expected USER_NOT_FOUND code, got ${JSON.stringify(res.data)}`);
+      }
+      return 'Successfully blocked unregistered login and prompted account creation';
+    }
+  );
+
+  // Test 11b: Unregistered Mobile Verify OTP Block
+  await check(
+    'Unregistered Mobile Verify OTP Block (/api/auth/verify-otp LOGIN_VERIFICATION)',
+    async () => {
+      const unregisteredPhone = '9999900001';
+      const res = await req('POST', '/api/auth/verify-otp', {
+        phoneNumber: unregisteredPhone,
+        otpCode: '123456',
+        purpose: 'LOGIN_VERIFICATION'
+      });
+      if (res.status !== 404) {
+        throw new Error(`Expected HTTP 404 for unregistered verify OTP, got status ${res.status}`);
+      }
+      if (res.data?.code !== 'USER_NOT_FOUND') {
+        throw new Error(`Expected USER_NOT_FOUND code, got ${JSON.stringify(res.data)}`);
+      }
+      return 'Strictly rejected OTP verification attempt for unregistered phone';
+    }
+  );
+
+  // Test 12: Registered Mobile Number Login Flow (Bug Fix Validation)
+  await check(
+    'Registered Mobile Login Verification (/api/auth/send-otp & verify-otp)',
+    async () => {
+      // Use the newly registered user's verified phone
+      const resSend = await req('POST', '/api/auth/send-otp', {
+        phoneNumber: testPhone,
+        purpose: 'LOGIN_VERIFICATION'
+      });
+      if (resSend.status !== 200 || !resSend.data?.otpRequired) {
+        throw new Error(`Expected 200 with otpRequired, got ${resSend.status}: ${JSON.stringify(resSend.data)}`);
+      }
+
+      const resVerify = await req('POST', '/api/auth/verify-otp', {
+        phoneNumber: testPhone,
+        otpCode: '123456',
+        purpose: 'LOGIN_VERIFICATION'
+      });
+      if (resVerify.status !== 200 || !resVerify.data?.token || !resVerify.data?.user) {
+        throw new Error(`Expected 200 with token and user object, got ${resVerify.status}`);
+      }
+      if (resVerify.data.user.phoneNumber !== testPhone) {
+        throw new Error(`User phone mismatch: ${resVerify.data.user.phoneNumber} vs ${testPhone}`);
+      }
+      return `Verified login for ${resVerify.data.user.fullName} (${resVerify.data.user.phoneNumber})`;
+    }
+  );
+
+  // Test 13: Database Check User Endpoint (/api/auth/check-user)
+  await check('Check User Database Endpoint (/api/auth/check-user)', async () => {
+    const resUnregistered = await req('POST', '/api/auth/check-user', { phoneNumber: '9999900001' });
+    if (resUnregistered.status !== 200 || resUnregistered.data?.exists !== false) {
+      throw new Error(`Expected exists: false for unregistered number`);
+    }
+
+    const resRegistered = await req('POST', '/api/auth/check-user', { phoneNumber: testPhone });
+    if (resRegistered.status !== 200 || resRegistered.data?.exists !== true) {
+      throw new Error(`Expected exists: true for registered number`);
+    }
+    return `Correctly checks database: unregistered=false, registered=true`;
+  });
+
   console.log('\n======================================================');
   const failed = results.filter((r) => r.status === 'FAIL');
   console.log(`TOTAL SUITE RESULTS: ${results.length - failed.length}/${results.length} PASSED`);

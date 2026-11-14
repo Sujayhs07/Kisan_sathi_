@@ -11,7 +11,9 @@ import {
   X,
   FileCheck2,
   Landmark,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import TopHeader from '../components/TopHeader';
@@ -24,7 +26,14 @@ export default function MyProfilePage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleStartEdit = () => {
-    setEditForm({ ...profile, state: profile.state || 'Karnataka' });
+    setEditForm({
+      ...profile,
+      dob: profile.dob || '',
+      gender: profile.gender || '',
+      age: profile.age ?? null,
+      state: profile.state || 'Karnataka',
+      fruitsId: profile.fruitsId || ''
+    });
     setIsEditing(true);
   };
 
@@ -65,12 +74,37 @@ export default function MyProfilePage() {
     setEditForm(prev => ({ ...prev, mobile: strictlyTen ? `+91 ${strictlyTen}` : '' }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    setProfile(editForm);
+    const rawFruits = editForm.fruitsId ? String(editForm.fruitsId).trim() : '';
+    const cleanFruits = rawFruits && !rawFruits.startsWith('KA-FRUITS-') && !rawFruits.startsWith('FID-KA-') ? rawFruits : null;
+    const cleanDob = editForm.dob && String(editForm.dob).trim() ? String(editForm.dob).trim() : null;
+    let computedAge = editForm.age;
+    if (cleanDob) {
+      const birthDate = new Date(cleanDob);
+      if (!isNaN(birthDate.getTime())) {
+        computedAge = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    } else {
+      computedAge = null;
+    }
+    const cleanGender = editForm.gender && String(editForm.gender).trim() ? String(editForm.gender).trim() : null;
+
+    const updated = {
+      ...editForm,
+      dob: cleanDob,
+      age: computedAge,
+      gender: cleanGender,
+      fruitsId: cleanFruits,
+      fruitsRegistered: Boolean(cleanFruits)
+    };
+    setProfile(updated);
     setWizardData(prev => ({
       ...prev,
       fullName: editForm.name || prev.fullName,
+      dob: cleanDob,
+      age: computedAge !== null && computedAge !== undefined ? String(computedAge) : '',
+      gender: cleanGender || '',
       category: editForm.category || prev.category,
       state: editForm.state || prev.state,
       district: editForm.district || prev.district,
@@ -78,8 +112,52 @@ export default function MyProfilePage() {
       landHolding: editForm.landHolding || prev.landHolding,
       landType: editForm.landType || prev.landType,
       cropType: editForm.cropType || prev.cropType,
-      irrigationType: editForm.irrigation || prev.irrigationType
+      irrigationType: editForm.irrigation || prev.irrigationType,
+      fruitsId: cleanFruits,
+      fruitsRegistered: Boolean(cleanFruits)
     }));
+
+    // Persist to backend and localStorage if authenticated
+    try {
+      const token = localStorage.getItem('kisan_auth_token');
+      if (token) {
+        await fetch('/api/auth/profile', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            fullName: editForm.name,
+            state: editForm.state,
+            district: editForm.district,
+            taluk: editForm.taluk,
+            category: editForm.category,
+            dob: cleanDob || undefined,
+            gender: cleanGender || undefined,
+            age: computedAge !== null && computedAge !== undefined ? computedAge : undefined,
+            fruitsId: cleanFruits
+          })
+        });
+      }
+      const savedUserStr = localStorage.getItem('kisan_auth_user');
+      if (savedUserStr) {
+        const parsed = JSON.parse(savedUserStr);
+        parsed.fullName = editForm.name;
+        parsed.state = editForm.state;
+        parsed.district = editForm.district;
+        parsed.taluk = editForm.taluk;
+        parsed.category = editForm.category;
+        parsed.dob = cleanDob;
+        parsed.gender = cleanGender;
+        parsed.age = computedAge;
+        parsed.fruitsId = cleanFruits;
+        localStorage.setItem('kisan_auth_user', JSON.stringify(parsed));
+      }
+    } catch (err) {
+      console.warn('Could not persist profile changes:', err);
+    }
+
     evaluateEligibility({
       fullName: editForm.name,
       category: editForm.category,
@@ -89,7 +167,9 @@ export default function MyProfilePage() {
       landHolding: editForm.landHolding,
       landType: editForm.landType,
       cropType: editForm.cropType,
-      irrigationType: editForm.irrigation
+      irrigationType: editForm.irrigation,
+      fruitsId: cleanFruits,
+      fruitsRegistered: Boolean(cleanFruits)
     });
     setIsEditing(false);
     setSaveSuccess(true);
@@ -133,12 +213,28 @@ export default function MyProfilePage() {
             <h3 className="text-lg sm:text-xl font-bold text-stone-900 font-serif-heading">
               {profile.name}
             </h3>
-            <p className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full mt-2">
-              ✓ FRUITS Verified Farmer
-            </p>
-            <p className="text-xs text-stone-500 mt-2">
-              FID: {profile.fruitsId}
-            </p>
+            {profile.fruitsId ? (
+              <>
+                <p className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full mt-2">
+                  ✓ {language === 'kn' ? 'FRUITS ಸಂಯೋಜಿತ ರೈತ' : 'FRUITS Linked Farmer'}
+                </p>
+                <p className="text-xs font-mono font-bold text-stone-700 mt-2 bg-stone-100 px-2.5 py-1 rounded-lg">
+                  FID: {profile.fruitsId}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-amber-900 bg-amber-100/90 border border-amber-300 px-3 py-1 rounded-full mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>{language === 'kn' ? 'FRUITS ಐಡಿ ಸಂಯೋಜಿಸಿಲ್ಲ' : 'FRUITS ID Not Linked'}</span>
+                </p>
+                <p className="text-[11px] text-stone-500 mt-2 leading-tight">
+                  {language === 'kn'
+                    ? 'ಸರ್ಕಾರಿ ಸೌಲಭ್ಯ ಪಡೆಯಲು fruits.karnataka.gov.in ನ ಅಧಿಕೃತ ಐಡಿ ನಮೂದಿಸಿ'
+                    : 'Link authentic FID from fruits.karnataka.gov.in for direct DBT benefits'}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Right Personal Information Card matching 09_My_Profile_Settings.png */}
@@ -218,11 +314,17 @@ export default function MyProfilePage() {
                     </div>
                     <div>
                       <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
-                        {t.dateOfBirth}
+                        {t.dateOfBirth || (language === 'kn' ? 'ಹುಟ್ಟಿದ ದಿನಾಂಕ' : 'Date of Birth')}
                       </span>
-                      <p className="text-base font-bold text-stone-900 mt-0.5">
-                        {profile.dob}
-                      </p>
+                      {profile.dob ? (
+                        <p className="text-base font-bold text-stone-900 mt-0.5">
+                          {profile.dob} {profile.age ? `(${profile.age} ${language === 'kn' ? 'ವರ್ಷ' : 'Yrs'})` : ''}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-semibold text-stone-400 italic mt-1">
+                          {language === 'kn' ? 'ನಮೂದಿಸಿಲ್ಲ (ಬದಲಾಯಿಸಿ ಬಟನ್ ಒತ್ತಿ ಸೇರಿಸಿ)' : 'Not Provided (Click Edit to Add)'}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -233,11 +335,23 @@ export default function MyProfilePage() {
                     </div>
                     <div>
                       <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
-                        {t.gender}
+                        {t.gender || (language === 'kn' ? 'ಲಿಂಗ' : 'Gender')}
                       </span>
-                      <p className="text-base font-bold text-stone-900 mt-0.5">
-                        {profile.gender}
-                      </p>
+                      {profile.gender ? (
+                        <p className="text-base font-bold text-stone-900 mt-0.5">
+                          {profile.gender === 'Male'
+                            ? (language === 'kn' ? 'ಪುರುಷ (Male)' : 'Male')
+                            : profile.gender === 'Female'
+                            ? (language === 'kn' ? 'ಮಹಿಳೆ (Female)' : 'Female')
+                            : profile.gender === 'Other'
+                            ? (language === 'kn' ? 'ಇತರೆ (Other)' : 'Other')
+                            : profile.gender}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-semibold text-stone-400 italic mt-1">
+                          {language === 'kn' ? 'ನಮೂದಿಸಿಲ್ಲ (ಬದಲಾಯಿಸಿ ಬಟನ್ ಒತ್ತಿ ಸೇರಿಸಿ)' : 'Not Provided (Click Edit to Add)'}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -301,6 +415,41 @@ export default function MyProfilePage() {
                     </div>
                   </div>
 
+                  {/* Authentic Karnataka FRUITS ID */}
+                  <div className="flex items-start gap-3.5 sm:col-span-2 p-3.5 rounded-2xl bg-stone-50 border border-stone-200">
+                    <div className="p-2.5 rounded-xl bg-white text-emerald-800 shadow-xs border border-stone-200 flex-shrink-0">
+                      <FileText className="w-5 h-5 text-emerald-700" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+                          {language === 'kn' ? 'ಕರ್ನಾಟಕ FRUITS ಐಡಿ (FID)' : 'Karnataka FRUITS ID (FID)'}
+                        </span>
+                        {profile.fruitsId ? (
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                            ✓ {language === 'kn' ? 'ಸಂಯೋಜಿಸಲಾಗಿದೆ' : 'Linked'}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-700" />
+                            {language === 'kn' ? 'ಸಂಯೋಜಿಸಿಲ್ಲ' : 'Not Linked'}
+                          </span>
+                        )}
+                      </div>
+                      {profile.fruitsId ? (
+                        <p className="text-base font-bold text-stone-900 mt-1 font-mono tracking-wider">
+                          {profile.fruitsId}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-stone-600 mt-1">
+                          {language === 'kn'
+                            ? 'ನಿಮ್ಮ ಬಳಿ ಅಧಿಕೃತ FRUITS ID ಇದ್ದರೆ "ಬದಲಾಯಿಸಿ" ಬಟನ್ ಒತ್ತಿ ಸೇರಿಸಿ. ಸರ್ಕಾರಿ ಯೋಜನೆಗಳ ನೇರ ಹಣ ವರ್ಗಾವಣೆಗೆ (DBT) ಇದು ಅಗತ್ಯ.'
+                            : 'No authentic FRUITS ID linked yet. Click "Edit" to add your genuine FID from fruits.karnataka.gov.in for direct DBT.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                 </div>
               ) : (
                 /* Editable Form with Cascading State -> District -> Taluk Dropdowns */
@@ -350,6 +499,52 @@ export default function MyProfilePage() {
                         placeholder="10-digit mobile number"
                         required
                       />
+                    </div>
+
+                    {/* Date of Birth Input */}
+                    <div>
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                        {t.dateOfBirth || (language === 'kn' ? 'ಹುಟ್ಟಿದ ದಿನಾಂಕ' : 'Date of Birth')}
+                      </label>
+                      <input
+                        type="date"
+                        value={editForm.dob || ''}
+                        max={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          let calculatedAge = null;
+                          if (val) {
+                            const d = new Date(val);
+                            if (!isNaN(d.getTime())) {
+                              calculatedAge = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
+                            }
+                          }
+                          setEditForm({ ...editForm, dob: val, age: calculatedAge });
+                        }}
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none"
+                      />
+                      {editForm.age !== null && editForm.age !== undefined && editForm.dob && (
+                        <span className="text-[11px] text-stone-500 mt-1 block">
+                          {language === 'kn' ? `ವಯಸ್ಸು: ${editForm.age} ವರ್ಷಗಳು` : `Age: ${editForm.age} years`}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Gender Dropdown */}
+                    <div>
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                        {t.gender || (language === 'kn' ? 'ಲಿಂಗ' : 'Gender')}
+                      </label>
+                      <select
+                        value={editForm.gender || ''}
+                        onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none cursor-pointer"
+                      >
+                        <option value="">{language === 'kn' ? '-- ಲಿಂಗ ಆಯ್ಕೆಮಾಡಿ (ಐಚ್ಛಿಕ) --' : '-- Select Gender (Optional) --'}</option>
+                        <option value="Male">{language === 'kn' ? 'ಪುರುಷ (Male)' : 'Male'}</option>
+                        <option value="Female">{language === 'kn' ? 'ಮಹಿಳೆ (Female)' : 'Female'}</option>
+                        <option value="Other">{language === 'kn' ? 'ಇತರೆ (Other)' : 'Other'}</option>
+                      </select>
                     </div>
 
                     {/* State Dropdown */}
@@ -436,6 +631,25 @@ export default function MyProfilePage() {
                         <option value="SC">SC (Scheduled Caste)</option>
                         <option value="ST">ST (Scheduled Tribe)</option>
                       </select>
+                    </div>
+
+                    {/* Authentic Karnataka FRUITS ID Input */}
+                    <div className="sm:col-span-2">
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                        {language === 'kn' ? 'ಕರ್ನಾಟಕ FRUITS ಐಡಿ (FID - ಐಚ್ಛಿಕ)' : 'Karnataka FRUITS ID (FID - Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm.fruitsId || ''}
+                        onChange={(e) => setEditForm({ ...editForm, fruitsId: e.target.value.trim() })}
+                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-forest-700 focus:outline-none font-mono tracking-wider"
+                        placeholder={language === 'kn' ? 'ಉದಾ: 10048291 (fruits.karnataka.gov.in)' : 'e.g. 10048291 (from fruits.karnataka.gov.in)'}
+                      />
+                      <span className="text-[11px] text-stone-500 mt-1 block">
+                        {language === 'kn'
+                          ? 'ನಿಮ್ಮ ಬಳಿ ಅಧಿಕೃತ FRUITS ID ಇಲ್ಲದಿದ್ದರೆ ಖಾಲಿ ಬಿಡಿ. ಸಿಸ್ಟಮ್ ಯಾವುದೇ ನಕಲಿ ಐಡಿಯನ್ನು ರಚಿಸುವುದಿಲ್ಲ.'
+                          : 'Leave blank if not yet registered on fruits.karnataka.gov.in. The system will never fabricate an unauthentic ID.'}
+                      </span>
                     </div>
                   </div>
 

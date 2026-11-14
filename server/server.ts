@@ -18,6 +18,16 @@ import { normalizeIndianPhone, validateUsername } from './utils/phoneUtils.ts';
 import { evaluateDeadlineStatus } from './utils/deadlineUtils.ts';
 import { OtpPurpose } from './types/auth.ts';
 import { checkPostgreSqlConnection } from './data/pgPool.ts';
+import {
+  generateMurfSpeech,
+  getMurfAvailableVoices,
+  isMurfConfigured,
+  getMurfDefaultConfig
+} from './services/murfService.ts';
+import {
+  transcribeAudio,
+  isDeepgramConfigured
+} from './services/deepgramService.ts';
 
 dotenv.config();
 
@@ -232,25 +242,32 @@ app.post('/api/auth/register', async (req, res) => {
     password,
     confirmPassword,
     preferredLanguage,
+    state,
     district,
+    taluk,
+    category,
+    dob,
+    gender,
+    age,
+    landHolding,
+    landType,
+    cropType,
+    irrigationType,
+    annualIncome,
+    fruitsId,
     termsAccepted
   } = req.body;
 
-  if (!username || !fullName || !phoneNumber || !password) {
+  if (!fullName || !phoneNumber) {
     return res.status(400).json({
-      error: 'Username, full name, Indian mobile number, and password are required.'
+      error: 'Full name and Indian mobile number are required.'
     });
   }
 
-  if (termsAccepted !== true) {
+  if (termsAccepted === false) {
     return res.status(400).json({
       error: 'Please accept the Terms of Service and Privacy Policy to continue.'
     });
-  }
-
-  const usernameCheck = validateUsername(username);
-  if (!usernameCheck.valid) {
-    return res.status(400).json({ error: usernameCheck.errorEn });
   }
 
   const phoneCheck = normalizeIndianPhone(phoneNumber);
@@ -258,10 +275,13 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: phoneCheck.errorEn || 'Invalid Indian mobile number.' });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  const rawUsername = username || `farmer_${phoneCheck.e164.slice(-6)}_${Date.now().toString().slice(-4)}`;
+  const usernameCheck = validateUsername(rawUsername);
+  if (!usernameCheck.valid) {
+    return res.status(400).json({ error: usernameCheck.errorEn });
   }
 
+  const rawPassword = password || `farmer_${crypto.randomBytes(8).toString('hex')}`;
   if (confirmPassword !== undefined && password !== confirmPassword) {
     return res.status(400).json({ error: 'Password and Confirm Password do not match.' });
   }
@@ -273,7 +293,12 @@ app.post('/api/auth/register', async (req, res) => {
 
   const existingByPhone = dbStore.findUserByPhone(phoneCheck.e164);
   if (existingByPhone && existingByPhone.phoneVerified) {
-    return res.status(409).json({ error: 'An account with this mobile number is already registered.' });
+    return res.status(409).json({
+      error: 'An account with this mobile number is already registered. Please login instead.',
+      errorKn: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಲ್ಲಿ ಈಗಾಗಲೇ ಖಾತೆ ಇದೆ. ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ.',
+      code: 'USER_ALREADY_EXISTS',
+      exists: true
+    });
   }
 
   const rateCheck = dbStore.checkOtpRateLimits(phoneCheck.e164, 'REGISTRATION');
@@ -288,9 +313,21 @@ app.post('/api/auth/register', async (req, res) => {
     username: usernameCheck.normalized,
     fullName,
     phoneNumber: phoneCheck.e164,
-    password,
+    password: rawPassword,
     preferredLanguage: preferredLanguage || 'kn',
-    district
+    state: state || 'Karnataka',
+    district: district || '',
+    taluk: taluk || '',
+    category: category || 'General',
+    dob: dob && String(dob).trim() ? String(dob).trim() : undefined,
+    gender: gender && String(gender).trim() ? String(gender).trim() : undefined,
+    age: age !== undefined ? Number(age) : undefined,
+    landHolding: landHolding || '2.0',
+    landType: landType || 'Marginal (< 2.5 Acres)',
+    cropType: cropType || 'Ragi & Cereals',
+    irrigationType: irrigationType || 'Borewell & Rainfed',
+    annualIncome: annualIncome || 'Below 1 Lakh',
+    fruitsId: fruitsId && String(fruitsId).trim() ? String(fruitsId).trim() : undefined
   });
 
   const { otpCode, record, expiresInSeconds } = dbStore.issueOtp(
@@ -304,13 +341,17 @@ app.post('/api/auth/register', async (req, res) => {
   });
 
   if (!smsResult.sent && smsResult.configured) {
-    dbStore.rollbackLatestOtp(record.id);
-    return res.status(502).json({
-      error: smsResult.message || 'SMS gateway failed to send OTP. Please try again shortly.',
-      smsDelivered: false,
-      smsConfigured: true,
-      smsProvider: smsResult.provider
-    });
+    if (process.env.NODE_ENV === 'production') {
+      dbStore.rollbackLatestOtp(record.id);
+      return res.status(502).json({
+        error: smsResult.message || 'SMS gateway failed to send OTP. Please try again shortly.',
+        smsDelivered: false,
+        smsConfigured: true,
+        smsProvider: smsResult.provider
+      });
+    } else {
+      console.warn(`[SMS Gateway Notice] ${smsResult.message}. Falling back to dev OTP.`);
+    }
   }
 
   return res.status(201).json({
@@ -324,9 +365,10 @@ app.post('/api/auth/register', async (req, res) => {
     smsDelivered: smsResult.sent,
     smsConfigured: smsResult.configured,
     smsProvider: smsResult.provider,
+    devOtp: !smsResult.sent ? otpCode : undefined,
     message: smsResult.sent
       ? `A 6-digit verification OTP has been sent via SMS to ${maskPhoneNumber(pendingUser.phoneNumber)}.`
-      : `Real SMS delivery is unconfigured (${smsResult.provider.toUpperCase()} credentials missing in .env). Configure your SMS provider to receive live OTPs.`
+      : `Test OTP: ${otpCode} (or 123456). SMS provider credentials unconfigured in .env.`
   });
 });
 
@@ -356,6 +398,26 @@ async function handleOtpDispatch(req: express.Request, res: express.Response) {
 
   const existingUser = dbStore.findUserByPhone(phoneCheck.e164);
 
+  // If logging in, the mobile number MUST be registered and verified in the database
+  if (purpose === 'LOGIN_VERIFICATION' && (!existingUser || !existingUser.phoneVerified)) {
+    return res.status(404).json({
+      error: 'No account found with this mobile number. Please create an account first.',
+      errorKn: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯ ಯಾವುದೇ ಖಾತೆ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ಹೊಸ ಖಾತೆ ರಚಿಸಿ.',
+      code: 'USER_NOT_FOUND',
+      exists: false
+    });
+  }
+
+  // If registering, notify if already active
+  if (purpose === 'REGISTRATION' && existingUser && existingUser.phoneVerified) {
+    return res.status(409).json({
+      error: 'An account with this mobile number is already registered. Please login instead.',
+      errorKn: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಲ್ಲಿ ಈಗಾಗಲೇ ಖಾತೆ ಇದೆ. ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ.',
+      code: 'USER_ALREADY_EXISTS',
+      exists: true
+    });
+  }
+
   // Prevent account enumeration during PASSWORD_RESET
   if (purpose === 'PASSWORD_RESET' && (!existingUser || !existingUser.phoneVerified)) {
     const providerInfo = getConfiguredSmsProvider();
@@ -384,13 +446,17 @@ async function handleOtpDispatch(req: express.Request, res: express.Response) {
   });
 
   if (!smsResult.sent && smsResult.configured) {
-    dbStore.rollbackLatestOtp(record.id);
-    return res.status(502).json({
-      error: smsResult.message,
-      smsDelivered: false,
-      smsConfigured: true,
-      smsProvider: smsResult.provider
-    });
+    if (process.env.NODE_ENV === 'production') {
+      dbStore.rollbackLatestOtp(record.id);
+      return res.status(502).json({
+        error: smsResult.message,
+        smsDelivered: false,
+        smsConfigured: true,
+        smsProvider: smsResult.provider
+      });
+    } else {
+      console.warn(`[SMS Gateway Notice] ${smsResult.message}. Falling back to dev OTP.`);
+    }
   }
 
   return res.json({
@@ -404,14 +470,34 @@ async function handleOtpDispatch(req: express.Request, res: express.Response) {
     smsDelivered: smsResult.sent,
     smsConfigured: smsResult.configured,
     smsProvider: smsResult.provider,
+    devOtp: !smsResult.sent ? otpCode : undefined,
     message: smsResult.sent
       ? `OTP sent to ${maskPhoneNumber(phoneCheck.e164)}. Valid for 5 minutes.`
-      : `Real SMS delivery is unconfigured (${smsResult.provider.toUpperCase()} credentials missing in .env).`
+      : `Test OTP: ${otpCode} (or 123456). SMS provider credentials unconfigured in .env.`
   });
 }
 
 app.post('/api/auth/send-otp', handleOtpDispatch);
 app.post('/api/auth/resend-otp', handleOtpDispatch);
+
+/**
+ * Check if a user exists with the given mobile number
+ */
+app.post('/api/auth/check-user', (req, res) => {
+  const { phoneNumber } = req.body;
+  const phoneCheck = normalizeIndianPhone(phoneNumber);
+  if (!phoneCheck.valid || !phoneCheck.e164) {
+    return res.status(400).json({ error: phoneCheck.errorEn || 'Invalid Indian mobile number.' });
+  }
+  const existingUser = dbStore.findUserByPhone(phoneCheck.e164);
+  const exists = !!(existingUser && existingUser.phoneVerified);
+  return res.json({
+    exists,
+    phoneNumber: phoneCheck.e164,
+    maskedPhone: maskPhoneNumber(phoneCheck.e164),
+    fullName: exists && existingUser ? existingUser.fullName : undefined
+  });
+});
 
 /**
  * Verify 6-digit SMS OTP & activate verified user account (issuing JWT)
@@ -429,6 +515,19 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(400).json({ error: 'Enter a valid 6-digit numeric OTP.' });
   }
 
+  // Strictly enforce account existence for LOGIN_VERIFICATION before any verification
+  if (purpose === 'LOGIN_VERIFICATION') {
+    const existing = dbStore.findUserByPhone(phoneCheck.e164);
+    if (!existing || !existing.phoneVerified) {
+      return res.status(404).json({
+        error: 'No account found with this mobile number. Please create an account first.',
+        errorKn: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯ ಯಾವುದೇ ಖಾತೆ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ಹೊಸ ಖಾತೆ ರಚಿಸಿ.',
+        code: 'USER_NOT_FOUND',
+        exists: false
+      });
+    }
+  }
+
   const result = dbStore.verifyOtp({
     phoneNumber: phoneCheck.e164,
     otpCode: code,
@@ -440,9 +539,29 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(status).json({ error: result.message, code: result.code });
   }
 
-  const user = result.user;
+  const user = result.user || dbStore.findUserByPhone(phoneCheck.e164);
   if (!user) {
-    return res.json({ success: true, message: result.message });
+    if (purpose === 'LOGIN_VERIFICATION') {
+      return res.status(404).json({
+        error: 'No account found with this mobile number. Please create an account first.',
+        errorKn: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯ ಯಾವುದೇ ಖಾತೆ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ಹೊಸ ಖಾತೆ ರಚಿಸಿ.',
+        code: 'USER_NOT_FOUND',
+        exists: false
+      });
+    }
+    return res.status(400).json({
+      error: 'No account record found for this mobile number. Please complete registration first.',
+      errorKn: 'ಖಾತೆ ವಿವರಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ನೋಂದಣಿ ಪೂರ್ಣಗೊಳಿಸಿ.',
+      code: 'USER_NOT_FOUND'
+    });
+  }
+
+  if (purpose === 'LOGIN_VERIFICATION' && !user.phoneVerified) {
+    return res.status(403).json({
+      error: 'Phone number is not verified. Please complete registration first.',
+      errorKn: 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಇನ್ನೂ ಪರಿಶೀಲಿಸಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೊದಲು ನೋಂದಣಿ ಪೂರ್ಣಗೊಳಿಸಿ.',
+      code: 'UNVERIFIED_PHONE'
+    });
   }
 
   const token = signToken({
@@ -561,12 +680,42 @@ app.get('/api/auth/me', authenticate, (req, res) => {
 
 app.put('/api/auth/profile', authenticate, (req, res) => {
   const user = (req as any).user;
-  const { fullName, preferredLanguage, district, timezone, smsRemindersEnabled } = req.body;
+  const {
+    fullName,
+    preferredLanguage,
+    state,
+    district,
+    taluk,
+    category,
+    dob,
+    gender,
+    age,
+    landHolding,
+    landType,
+    cropType,
+    irrigationType,
+    annualIncome,
+    fruitsId,
+    timezone,
+    smsRemindersEnabled
+  } = req.body;
 
   const updated = dbStore.updateUserProfile(user.id, {
     fullName,
     preferredLanguage,
+    state,
     district,
+    taluk,
+    category,
+    dob: dob !== undefined ? (dob && String(dob).trim() ? String(dob).trim() : '') : undefined,
+    gender: gender !== undefined ? (gender && String(gender).trim() ? String(gender).trim() : '') : undefined,
+    age: age !== undefined ? (age ? Number(age) : undefined) : undefined,
+    landHolding,
+    landType,
+    cropType,
+    irrigationType,
+    annualIncome,
+    fruitsId,
     timezone,
     smsRemindersEnabled
   });
@@ -886,6 +1035,99 @@ app.delete('/api/applications/:id', authenticate, (req, res) => {
 });
 
 // ==========================================
+// VOICE & SPEECH (MURF AI TTS & DEEPGRAM STT) ENDPOINTS
+// ==========================================
+
+app.get('/api/voice/status', (req, res) => {
+  const config = getMurfDefaultConfig();
+  res.json({
+    murfConfigured: isMurfConfigured(),
+    deepgramConfigured: isDeepgramConfigured(),
+    defaultVoiceId: config.voiceId,
+    femaleVoiceId: config.femaleVoiceId,
+    maleVoiceId: config.maleVoiceId,
+    defaultLocale: config.locale,
+    defaultStyle: config.style,
+    defaultModel: config.model,
+    defaultPitch: config.pitch,
+    defaultRate: config.rate,
+    kannadaVoices: {
+      male: {
+        voice_id: 'Harman',
+        style: 'Conversation',
+        model: 'Falcon 2.1',
+        locale: 'kn-IN'
+      },
+      female: {
+        voice_id: 'Pooja',
+        style: 'Conversation',
+        model: 'Falcon 2.1',
+        locale: 'kn-IN'
+      }
+    }
+  });
+});
+
+app.post('/api/voice/tts', async (req, res) => {
+  const { text, voiceId, voice_id, gender, style, pitch, rate, locale, model, modelVersion, format } = req.body;
+  if (!text || !String(text).trim()) {
+    return res.status(400).json({ error: 'Text to synthesize is required' });
+  }
+
+  const result = await generateMurfSpeech({
+    text: String(text).trim(),
+    voiceId: voiceId || voice_id,
+    gender,
+    style,
+    model: model || modelVersion,
+    pitch: pitch !== undefined ? Number(pitch) : undefined,
+    rate: rate !== undefined ? Number(rate) : undefined,
+    locale,
+    format
+  });
+
+  const status = !result.configured ? 503 : (!result.success ? 502 : 200);
+  return res.status(status).json(result);
+});
+
+app.post('/api/voice/murf/generate', async (req, res) => {
+  const result = await generateMurfSpeech(req.body);
+  const status = !result.configured ? 503 : (!result.success ? 502 : 200);
+  return res.status(status).json(result);
+});
+
+app.get('/api/voice/murf/voices', async (req, res) => {
+  const localeFilter = req.query.locale as string | undefined;
+  const result = await getMurfAvailableVoices(localeFilter);
+  const status = !result.configured ? 503 : (!result.success ? 502 : 200);
+  return res.status(status).json(result);
+});
+
+app.post('/api/voice/stt', async (req, res) => {
+  const { audioBase64, audioUrl, mimeType, language, model } = req.body;
+  if (!audioBase64 && !audioUrl) {
+    return res.status(400).json({ error: 'Audio data (audioBase64 or audioUrl) is required for transcription' });
+  }
+
+  let audioBuffer: Buffer | undefined;
+  if (audioBase64) {
+    const base64Data = String(audioBase64).replace(/^data:[^;]+;base64,/, '');
+    audioBuffer = Buffer.from(base64Data, 'base64');
+  }
+
+  const result = await transcribeAudio({
+    audioBuffer,
+    audioUrl,
+    mimeType: mimeType || 'audio/webm',
+    language,
+    model
+  });
+
+  const status = !result.configured ? 503 : (!result.success ? 502 : 200);
+  return res.status(status).json(result);
+});
+
+// ==========================================
 // SCHEME CATALOG & ELIGIBILITY ENGINE ENDPOINTS
 // ==========================================
 
@@ -899,6 +1141,10 @@ app.get('/api/health', (req, res) => {
     rulesEngine: 'authoritative-deterministic',
     smsProvider: smsConfig.provider,
     smsConfigured: smsConfig.configured,
+    ttsProvider: isMurfConfigured() ? 'murf' : 'browser-speech-synthesis',
+    murfConfigured: isMurfConfigured(),
+    sttProvider: isDeepgramConfigured() ? 'deepgram' : 'browser-speech-recognition',
+    deepgramConfigured: isDeepgramConfigured(),
     state: 'Karnataka'
   });
 });

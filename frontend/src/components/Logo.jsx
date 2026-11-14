@@ -21,7 +21,7 @@ export default function Logo({ variant = 'dark', className = '', showText = true
   return (
     <div className={`flex items-center gap-3 select-none cursor-pointer ${className}`}>
       {/* Official Circular Emblem with golden accent ring */}
-      <div className="relative w-11 h-11 flex-shrink-0 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-amber-300 p-0.5 shadow-md flex items-center justify-center overflow-hidden bg-white/95">
+      <div className="relative w-11 h-11 flex-shrink-0 rounded-full bg-gradient-to-tr from-forest-700 via-forest-600 to-amber-300 p-0.5 shadow-md flex items-center justify-center overflow-hidden bg-white/95">
         <img 
           src="/logo-emblem.png" 
           alt="Kisan Scheme Saathi Emblem" 
@@ -34,10 +34,10 @@ export default function Logo({ variant = 'dark', className = '', showText = true
           <span className={`font-serif-heading font-bold tracking-tight text-lg leading-tight ${
             isDark ? 'text-white' : 'text-stone-900'
           }`}>
-            Kisan Scheme <span className={isDark ? 'text-amber-300' : 'text-maroon-700'}>Saathi</span>
+            Kisan Scheme <span className={isDark ? 'text-[#F5DABF]' : 'text-maroon-700'}>Saathi</span>
           </span>
-          <span className={`text-[10px] tracking-wider uppercase font-semibold ${
-            isDark ? 'text-emerald-300/80' : 'text-emerald-700'
+          <span className={`text-xs tracking-wider uppercase font-bold ${
+            isDark ? 'text-[#F5DABF]' : 'text-[#6C151E]'
           }`}>
             Government Schemes Portal
           </span>

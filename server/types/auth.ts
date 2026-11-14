@@ -20,7 +20,19 @@ export interface User {
   phoneNumber: string; // Stored strictly in E.164 (+91XXXXXXXXXX)
   phoneVerified: boolean;
   preferredLanguage: 'en' | 'kn';
+  state?: string;
   district?: string;
+  taluk?: string;
+  category?: string;
+  dob?: string;
+  age?: number;
+  gender?: string;
+  landHolding?: string;
+  landType?: string;
+  cropType?: string;
+  irrigationType?: string;
+  annualIncome?: string;
+  fruitsId?: string;
   timezone: string; // Defaults to 'Asia/Kolkata'
   smsRemindersEnabled: boolean;
   accountStatus: AccountStatus;

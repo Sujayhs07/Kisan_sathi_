@@ -32,10 +32,27 @@ export default function MyRemindersPage() {
           </div>
         </div>
 
+        {/* If no reminders have been activated yet */}
+        {Object.values(reminders || {}).filter(Boolean).length === 0 && (
+          <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex items-start gap-3">
+            <Bell className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm text-stone-700">
+              <p className="font-bold text-stone-900">
+                {language === 'kn' ? 'ಯಾವುದೇ ನೆನಪೋಲೆ ಸಕ್ರಿಯವಾಗಿಲ್ಲ' : 'No active reminders set yet'}
+              </p>
+              <p className="mt-0.5 text-stone-600">
+                {language === 'kn'
+                  ? 'ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಪ್ರಾರಂಭವಾದಾಗ ತಕ್ಷಣ ಎಚ್ಚರಿಕೆ ಪಡೆಯಲು ಕೆಳಗಿನ ಮುಂಬರುವ ಯೋಜನೆಗಳಿಗೆ "ನೆನಪೋಲೆ ಹೊಂದಿಸಿ" ಬಟನ್ ಒತ್ತಿ.'
+                  : 'Click "Set Reminder" on any upcoming scheme below to be notified as soon as applications open.'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Reminder Cards matching 07_My_Reminders.png */}
         <div className="space-y-4">
           {reminderSchemes.map((scheme) => {
-            const isReminderActive = reminders[scheme.id] ?? true;
+            const isReminderActive = Boolean(reminders && reminders[scheme.id]);
 
             return (
               <div
@@ -85,7 +102,7 @@ export default function MyRemindersPage() {
                       className={`flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 ${
                         isReminderActive
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
-                          : 'bg-stone-100 text-stone-600 border border-stone-300 hover:bg-stone-200'
+                          : 'bg-stone-100 text-stone-700 border border-stone-300 hover:bg-stone-200'
                       }`}
                     >
                       {isReminderActive ? (
@@ -95,8 +112,8 @@ export default function MyRemindersPage() {
                         </>
                       ) : (
                         <>
-                          <BellOff className="w-4 h-4 text-stone-500" />
-                          <span>{language === 'kn' ? 'ನೆನಪೋಲೆ ಆಫ್' : 'Reminder Off'}</span>
+                          <Bell className="w-4 h-4 text-stone-500" />
+                          <span>{language === 'kn' ? 'ನೆನಪೋಲೆ ಹೊಂದಿಸಿ' : 'Set Reminder'}</span>
                         </>
                       )}
                     </button>

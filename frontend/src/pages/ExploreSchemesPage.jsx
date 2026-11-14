@@ -28,11 +28,11 @@ export default function ExploreSchemesPage() {
 
   // Helper icon by scheme/category
   const getSchemeIcon = (scheme) => {
-    if (scheme.category === 'Credit & Loan') return <CreditCard className="w-6 h-6 text-emerald-700" />;
-    if (scheme.category === 'Crop Insurance') return <ShieldCheck className="w-6 h-6 text-emerald-700" />;
-    if (scheme.category === 'Irrigation') return <Droplet className="w-6 h-6 text-emerald-700" />;
-    if (scheme.category === 'Infrastructure') return <Tractor className="w-6 h-6 text-emerald-700" />;
-    return <Sprout className="w-6 h-6 text-emerald-700" />;
+    if (scheme.category === 'Credit & Loan') return <CreditCard className="w-6 h-6 text-forest-700" />;
+    if (scheme.category === 'Crop Insurance') return <ShieldCheck className="w-6 h-6 text-forest-700" />;
+    if (scheme.category === 'Irrigation') return <Droplet className="w-6 h-6 text-forest-700" />;
+    if (scheme.category === 'Infrastructure') return <Tractor className="w-6 h-6 text-forest-700" />;
+    return <Sprout className="w-6 h-6 text-forest-700" />;
   };
 
   const filteredSchemes = schemes.filter(scheme => {

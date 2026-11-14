@@ -24,11 +24,15 @@ import {
 
 /**
  * Typewriter text component for streaming typing simulation
+ * Guaranteed to type at most ONCE per message and never re-trigger or loop.
  */
-function TypewriterText({ text, isLatest, onFinished, onSpeak, autoSpeak }) {
+function TypewriterText({ text, isLatest, onFinished }) {
   const [displayed, setDisplayed] = useState(isLatest ? '' : text);
   const [isTyping, setIsTyping] = useState(isLatest);
   const isMountedRef = useRef(true);
+  const hasFinishedRef = useRef(!isLatest);
+  const onFinishedRef = useRef(onFinished);
+  onFinishedRef.current = onFinished;
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -38,7 +42,8 @@ function TypewriterText({ text, isLatest, onFinished, onSpeak, autoSpeak }) {
   }, []);
 
   useEffect(() => {
-    if (!isLatest) {
+    // If already completed typing or not latest, show full text immediately with no loop
+    if (!isLatest || hasFinishedRef.current) {
       setDisplayed(text);
       setIsTyping(false);
       return;
@@ -59,9 +64,9 @@ function TypewriterText({ text, isLatest, onFinished, onSpeak, autoSpeak }) {
         setDisplayed(text);
         setIsTyping(false);
         clearInterval(timer);
-        if (onFinished && isMountedRef.current) onFinished();
-        if (autoSpeak && onSpeak && isMountedRef.current) {
-          onSpeak(text);
+        hasFinishedRef.current = true;
+        if (onFinishedRef.current && isMountedRef.current) {
+          onFinishedRef.current();
         }
       } else {
         setDisplayed(text.slice(0, idx));
@@ -69,14 +74,15 @@ function TypewriterText({ text, isLatest, onFinished, onSpeak, autoSpeak }) {
     }, speed);
 
     return () => clearInterval(timer);
-  }, [text, isLatest, autoSpeak, onSpeak, onFinished]);
+  }, [text, isLatest]);
 
   const handleSkip = () => {
+    if (hasFinishedRef.current) return;
     setDisplayed(text);
     setIsTyping(false);
-    if (onFinished && isMountedRef.current) onFinished();
-    if (autoSpeak && onSpeak && isMountedRef.current) {
-      onSpeak(text);
+    hasFinishedRef.current = true;
+    if (onFinishedRef.current && isMountedRef.current) {
+      onFinishedRef.current();
     }
   };
 
@@ -122,17 +128,69 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
   const [placeholder, setPlaceholder] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [autoVoice, setAutoVoice] = useState(false);
+  const [activeSpeakingMsgId, setActiveSpeakingMsgId] = useState(null);
   const [isComplete, setIsComplete] = useState(false);
   const [showProfileDrawer, setShowProfileDrawer] = useState(true);
   const [progress, setProgress] = useState(15);
 
   const messagesEndRef = useRef(null);
   const speechRecognitionRef = useRef(null);
+  const spokenMessageIdsRef = useRef(new Set());
+  const autoVoiceRef = useRef(autoVoice);
+  autoVoiceRef.current = autoVoice;
+
+  // Clear active speaking msg ID when speech ends
+  useEffect(() => {
+    if (!isSpeaking) {
+      setActiveSpeakingMsgId(null);
+    }
+  }, [isSpeaking]);
+
+  // Handler when typewriter finishes typing
+  const handleTypewriterFinished = useCallback((msgId, text) => {
+    if (autoVoiceRef.current && msgId && !spokenMessageIdsRef.current.has(msgId)) {
+      spokenMessageIdsRef.current.add(msgId);
+      setActiveSpeakingMsgId(msgId);
+      speakText(text, { lang: language });
+    }
+  }, [language, speakText]);
+
+  // Toggle auto-voice read aloud
+  const handleToggleAutoVoice = useCallback(() => {
+    if (autoVoice) {
+      stopSpeaking();
+      setActiveSpeakingMsgId(null);
+      setAutoVoice(false);
+    } else {
+      setAutoVoice(true);
+      // When turning on, read out the latest assistant question once
+      const latestAssistant = [...messages].reverse().find(m => m.role === 'assistant');
+      if (latestAssistant && !isSpeaking) {
+        spokenMessageIdsRef.current.add(latestAssistant.id);
+        setActiveSpeakingMsgId(latestAssistant.id);
+        speakText(latestAssistant.text, { lang: language });
+      }
+    }
+  }, [autoVoice, messages, isSpeaking, language, speakText, stopSpeaking]);
+
+  // Toggle individual message speech
+  const handleToggleMessageSpeech = useCallback((msgId, text) => {
+    if (isSpeaking && activeSpeakingMsgId === msgId) {
+      stopSpeaking();
+      setActiveSpeakingMsgId(null);
+    } else {
+      stopSpeaking();
+      spokenMessageIdsRef.current.add(msgId);
+      setActiveSpeakingMsgId(msgId);
+      speakText(text, { lang: language });
+    }
+  }, [isSpeaking, activeSpeakingMsgId, language, speakText, stopSpeaking]);
 
   // Stop voice and speech recognition immediately if chatbot unmounts or user navigates
   useEffect(() => {
     return () => {
       stopSpeaking();
+      setActiveSpeakingMsgId(null);
       if (speechRecognitionRef.current) {
         try {
           speechRecognitionRef.current.stop();
@@ -149,6 +207,9 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
 
   // Initialize first greeting message
   useEffect(() => {
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+    spokenMessageIdsRef.current.clear();
     const initial = getInitialChatMessage(language, wizardData.fullName);
     const initialMsg = {
       id: 'msg_0',
@@ -169,6 +230,9 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
 
   // Restart chat
   const handleRestart = () => {
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+    spokenMessageIdsRef.current.clear();
     const initial = getInitialChatMessage(language, wizardData.fullName);
     setMessages([{
       id: 'msg_' + Date.now(),
@@ -186,6 +250,8 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
 
   // Submit a message (either typed by user or clicked via quick option chip)
   const handleSendMessage = async (textToSend, customValue = null) => {
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
     const trimmed = (textToSend || inputText).trim();
     if (!trimmed && customValue === null) return;
 
@@ -266,9 +332,13 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
 
   // Toggle voice speech recognition
   const toggleListening = () => {
+    // Stop any speech output first to prevent microphone acoustic feedback loop
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+
     if (isListening) {
       if (speechRecognitionRef.current) {
-        speechRecognitionRef.current.stop();
+        try { speechRecognitionRef.current.stop(); } catch {}
       }
       setIsListening(false);
       return;
@@ -348,24 +418,30 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          {/* Switch to Form Mode button in Chat Header */}
+          <button
+            type="button"
+            onClick={onSwitchToForm}
+            className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 min-h-[38px] rounded-xl bg-forest-800 hover:bg-forest-700 border border-forest-600/90 text-cream-100 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+            title={language === 'kn' ? 'ಫಾರ್ಮ್ ಮೋಡ್‌ಗೆ ಬದಲಾಯಿಸಿ' : 'Switch to Form Mode'}
+          >
+            <FileText className="w-4 h-4 text-amber-300" />
+            <span className="hidden sm:inline">{language === 'kn' ? 'ಫಾರ್ಮ್ ಮೋಡ್' : 'Form Mode'}</span>
+          </button>
+
           {/* Auto voice read-aloud toggle */}
           <button
             type="button"
-            onClick={() => {
-              if (autoVoice) {
-                stopSpeaking();
-              }
-              setAutoVoice(!autoVoice);
-            }}
+            onClick={handleToggleAutoVoice}
             className={`p-2 sm:p-2.5 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px] rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
               autoVoice 
                 ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm' 
                 : 'bg-forest-800 border-forest-700 text-forest-200 hover:text-white'
             }`}
-            title={autoVoice ? "Mute automatic voice reading" : "Enable automatic voice reading"}
+            title={autoVoice ? (language === 'kn' ? "ಧ್ವನಿಯನ್ನು ಮ್ಯೂಟ್ ಮಾಡಿ" : "Mute automatic voice reading") : (language === 'kn' ? "ಸ್ವಯಂಚಾಲಿತ ಧ್ವನಿ ಸಕ್ರಿಯಗೊಳಿಸಿ" : "Enable automatic voice reading")}
           >
             {autoVoice ? <Volume2 className="w-4 h-4 text-emerald-300 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
-            <span className="hidden md:inline">{autoVoice ? 'Voice On' : 'Voice Off'}</span>
+            <span className="hidden md:inline">{autoVoice ? (language === 'kn' ? 'ಧ್ವನಿ ಆನ್' : 'Voice On') : (language === 'kn' ? 'ಧ್ವನಿ ಆಫ್' : 'Voice Off')}</span>
           </button>
 
           {/* Restart conversation */}
@@ -386,6 +462,26 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
           className="h-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-500"
           style={{ width: `${progress}%` }}
         />
+      </div>
+
+      {/* 2b. Mode Switch Hint Banner */}
+      <div className="bg-emerald-50/90 border-b border-emerald-200/90 px-3 sm:px-4 py-2 text-xs text-emerald-950 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+        <div className="flex items-center gap-2">
+          <Bot className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+          <span>
+            {language === 'kn'
+              ? 'AI ಸಹಾಯಕ ನಿಮ್ಮೊಂದಿಗೆ ಸಂವಾದಿಸುತ್ತಿದೆ. ಯಾರಾದರೂ ನೇರವಾಗಿ ಫಾರ್ಮ್ ಮೂಲಕ ಉತ್ತರಿಸಲು ಬಯಸಿದರೆ ಬದಲಾಯಿಸಬಹುದು.'
+              : 'AI Assistant is evaluating your eligibility interactively. Anyone can switch to the 4-Stage Form anytime.'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onSwitchToForm}
+          className="text-forest-900 font-bold hover:underline whitespace-nowrap text-xs flex items-center gap-1.5 flex-shrink-0 bg-white border border-emerald-300 px-2.5 py-1 rounded-xl shadow-xs hover:bg-emerald-100/60 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5 text-forest-700" />
+          <span>{language === 'kn' ? '4-ಹಂತದ ಫಾರ್ಮ್‌ಗೆ ಬದಲಾಯಿಸಿ →' : 'Switch to 4-Stage Form →'}</span>
+        </button>
       </div>
 
       {/* 3. Live Profile Attributes Drawer (Collapsible) */}
@@ -479,8 +575,7 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
                     <TypewriterText 
                       text={msg.text} 
                       isLatest={isLatestAssistant} 
-                      onSpeak={(txt) => speakText(txt, { lang: language })}
-                      autoSpeak={autoVoice}
+                      onFinished={() => handleTypewriterFinished(msg.id, msg.text)}
                     />
                   ) : (
                     <p>{msg.text}</p>
@@ -493,18 +588,12 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
                   {isAssistant && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (isSpeaking) {
-                          stopSpeaking();
-                        } else {
-                          speakText(msg.text, { lang: language });
-                        }
-                      }}
+                      onClick={() => handleToggleMessageSpeech(msg.id, msg.text)}
                       className="hover:text-forest-800 transition-colors inline-flex items-center gap-1 font-medium min-h-[32px]"
-                      title={isSpeaking ? "Stop voice" : "Read question aloud"}
+                      title={isSpeaking && activeSpeakingMsgId === msg.id ? (language === 'kn' ? "ಧ್ವನಿ ನಿಲ್ಲಿಸಿ" : "Stop voice") : (language === 'kn' ? "ಪ್ರಶ್ನೆ ಆಲಿಸಿ" : "Read question aloud")}
                     >
-                      <Volume2 className={`w-3.5 h-3.5 ${isSpeaking ? 'text-emerald-700 animate-bounce' : ''}`} />
-                      <span>{isSpeaking ? (language === 'kn' ? 'ನಿಲ್ಲಿಸಿ' : 'Stop') : (language === 'kn' ? 'ಕೇಳಿ' : 'Listen')}</span>
+                      <Volume2 className={`w-3.5 h-3.5 ${isSpeaking && activeSpeakingMsgId === msg.id ? 'text-emerald-700 animate-bounce' : ''}`} />
+                      <span>{isSpeaking && activeSpeakingMsgId === msg.id ? (language === 'kn' ? 'ನಿಲ್ಲಿಸಿ' : 'Stop') : (language === 'kn' ? 'ಕೇಳಿ' : 'Listen')}</span>
                     </button>
                   )}
                 </div>

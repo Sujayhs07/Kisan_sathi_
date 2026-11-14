@@ -7,13 +7,15 @@ import {
   User, 
   ShieldCheck, 
   CheckCircle2,
+  AlertCircle,
   ArrowRight
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import TopHeader from '../components/TopHeader';
 
 export default function DashboardPage() {
-  const { setCurrentPage, profile, t, language } = useApp();
+  const { setCurrentPage, profile, reminders, t, language } = useApp();
+  const reminderCount = Object.values(reminders || {}).filter(Boolean).length;
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-cream-100 font-sans selection:bg-maroon-700 selection:text-white">
@@ -48,15 +50,27 @@ export default function DashboardPage() {
 
             {/* Discreet Farmer Verified Credentials Strip */}
             <div className="pt-2 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-stone-500">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                <span>FRUITS: {profile.fruitsId || 'KA-FRUITS-2026-98124'}</span>
-              </span>
+              {profile.fruitsId ? (
+                <span className="inline-flex items-center gap-1 font-semibold text-forest-800 bg-forest-50 px-2.5 py-1 rounded-full border border-forest-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-forest-700" />
+                  <span>FRUITS: {profile.fruitsId}</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('profile')}
+                  className="inline-flex items-center gap-1 font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 transition-colors cursor-pointer"
+                  title={language === 'kn' ? 'ಕರ್ನಾಟಕ FRUITS ಐಡಿ ಸಂಯೋಜಿಸಲು ಪ್ರೊಫೈಲ್ ಗೆ ಹೋಗಿ' : 'Go to Profile to link your authentic Karnataka FRUITS ID'}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{language === 'kn' ? 'FRUITS ಐಡಿ: ಸಂಯೋಜಿಸಿಲ್ಲ (ಸಂಯೋಜಿಸಿ)' : 'FRUITS ID: Not Linked (Add)'}</span>
+                </button>
+              )}
               <span className="hidden sm:inline-flex items-center gap-1 font-medium text-stone-600 bg-stone-100 px-2.5 py-1 rounded-full border border-stone-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                <ShieldCheck className="w-3.5 h-3.5 text-forest-700" />
                 <span>Bhoomi RTC: {profile.taluk || 'Hoskote'}, {profile.district || 'Bengaluru Rural'}</span>
               </span>
-              <span className="text-[11px] text-emerald-700 font-semibold">
+              <span className="text-[11px] text-forest-700 font-semibold">
                 • Aadhaar DBT Linked
               </span>
             </div>
@@ -119,14 +133,21 @@ export default function DashboardPage() {
             onClick={() => setCurrentPage('reminders')}
             className="group p-5 sm:p-7 md:p-8 bg-white rounded-2xl sm:rounded-3xl border border-stone-200/70 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[190px]"
           >
-            <div className="mb-2.5 sm:mb-3 text-[#7C1A22] group-hover:scale-110 transition-transform">
+            <div className="mb-2.5 sm:mb-3 text-[#6C151E] group-hover:scale-110 transition-transform relative">
               <Bell className="w-8 h-8 sm:w-9 sm:h-9 stroke-[1.8]" />
+              {reminderCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-700 text-white rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs">
+                  {reminderCount}
+                </span>
+              )}
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#7C1A22] transition-colors">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#6C151E] transition-colors">
               {t.myReminders}
             </h3>
             <p className="text-stone-500 text-xs sm:text-sm">
-              {t.remindersDesc}
+              {reminderCount > 0
+                ? (language === 'kn' ? `${reminderCount} ಸಕ್ರಿಯ ನೆನಪೋಲೆಗಳು` : `${reminderCount} active reminder${reminderCount > 1 ? 's' : ''}`)
+                : t.remindersDesc}
             </p>
           </div>
 
@@ -135,10 +156,10 @@ export default function DashboardPage() {
             onClick={() => setCurrentPage('guide')}
             className="group p-5 sm:p-7 md:p-8 bg-white rounded-2xl sm:rounded-3xl border border-stone-200/70 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[190px]"
           >
-            <div className="mb-2.5 sm:mb-3 text-[#7C1A22] group-hover:scale-110 transition-transform">
+            <div className="mb-2.5 sm:mb-3 text-[#6C151E] group-hover:scale-110 transition-transform">
               <BookOpen className="w-8 h-8 sm:w-9 sm:h-9 stroke-[1.8]" />
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#7C1A22] transition-colors">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#6C151E] transition-colors">
               {t.applicationGuide}
             </h3>
             <p className="text-stone-500 text-xs sm:text-sm">
@@ -151,10 +172,10 @@ export default function DashboardPage() {
             onClick={() => setCurrentPage('profile')}
             className="group p-5 sm:p-7 md:p-8 bg-white rounded-2xl sm:rounded-3xl border border-stone-200/70 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[190px] sm:col-span-2 md:col-span-1"
           >
-            <div className="mb-2.5 sm:mb-3 text-[#7C1A22] group-hover:scale-110 transition-transform">
+            <div className="mb-2.5 sm:mb-3 text-[#6C151E] group-hover:scale-110 transition-transform">
               <User className="w-8 h-8 sm:w-9 sm:h-9 stroke-[1.8]" />
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#7C1A22] transition-colors">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-stone-900 mb-1 group-hover:text-[#6C151E] transition-colors">
               {t.myProfile}
             </h3>
             <p className="text-stone-500 text-xs sm:text-sm">

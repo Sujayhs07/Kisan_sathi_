@@ -3,14 +3,30 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    background-color: #FAF6EF;
-    color: #1C1917;
-    font-family: 'Inter', 'Noto Sans Kannada', sans-serif;
+  html {
+    font-size: 16px;
+    line-height: 1.55;
   }
 
-  h1, h2, h3, .font-serif-heading {
-    font-family: 'Playfair Display', Georgia, serif;
+  body {
+    background-color: #FCF8F3;
+    color: #1C1917;
+    font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, .font-serif-heading {
+    font-family: 'Plus Jakarta Sans', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  /* Prevent Kannada script vowel clipping and improve legibility */
+  :lang(kn), [lang="kn"], .lang-kn {
+    font-family: 'Noto Sans Kannada', 'Plus Jakarta Sans', system-ui, sans-serif;
+    line-height: 1.65;
   }
 }
 
@@ -20,12 +36,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #FAF6EF;
+  background: #FCF8F3;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D5CBBB;
+  background: #E8C29D;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A89F8F;
+  background: #D9AD84;
 }

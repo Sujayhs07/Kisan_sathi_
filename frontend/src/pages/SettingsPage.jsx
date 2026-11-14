@@ -31,6 +31,9 @@ export default function SettingsPage() {
     selectedVoiceGender,
     setSelectedVoiceGender,
     getActiveVoiceInfo,
+    murfConfig,
+    setMurfConfig,
+    murfStatus,
     isSpeaking 
   } = useApp();
 
@@ -246,24 +249,34 @@ export default function SettingsPage() {
             <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-stone-700 uppercase tracking-wider text-[10px]">Active Voice Engine</span>
-                <span className="font-semibold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded text-[10px]">
-                  {language === 'kn' ? 'ಕನ್ನಡ / ಭಾರತೀಯ ಧ್ವನಿ' : 'Indian English Dialect'}
+                <span className={`font-semibold px-2 py-0.5 rounded text-[10px] ${
+                  murfStatus?.murfConfigured 
+                    ? 'text-purple-800 bg-purple-100 border border-purple-300 font-bold' 
+                    : 'text-emerald-800 bg-emerald-100/80'
+                }`}>
+                  {murfStatus?.murfConfigured ? 'Murf AI Falcon 2.1 (Active)' : (language === 'kn' ? 'ಕನ್ನಡ / ಭಾರತೀಯ ಧ್ವನಿ' : 'Indian English Dialect')}
                 </span>
               </div>
               <p className="font-mono font-bold text-stone-900 text-sm">
-                {activeVoice.name}
+                {murfStatus?.murfConfigured 
+                  ? `Murf Voice: ${selectedVoiceGender === 'male' ? (murfConfig?.maleVoiceId || 'Harman') : (murfConfig?.femaleVoiceId || 'Pooja')} (${murfConfig?.locale || 'kn-IN'})` 
+                  : activeVoice.name}
               </p>
               <p className="text-stone-600 text-[11px] leading-relaxed">
-                {language === 'kn'
-                  ? 'ಕರ್ನಾಟಕದ ರೈತ ಸಮುದಾಯಕ್ಕಾಗಿ ಕೃಷಿ, ಬೆಳೆ ಮತ್ತು ಸಬ್ಸಿಡಿ ಪದಗಳ ನಿಖರ ಉಚ್ಚಾರಣೆಗೆ ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ.'
-                  : 'Calibrated for natural Indian cadence, Indic phonetics, and scheme terms (Bhoomi RTC, FRUITS, PM-KISAN, Raitha Vidyanidhi).'}
+                {murfStatus?.murfConfigured
+                  ? (language === 'kn'
+                      ? `Murf AI Falcon 2.1 ನಿಂದ ಚಾಲಿತವಾಗಿದೆ (ಧ್ವನಿ: ${selectedVoiceGender === 'male' ? 'Harman (ಪುರುಷ)' : 'Pooja (ಮಹಿಳೆ)'}, ಉಚ್ಚಾರಣೆ: ${murfConfig?.locale || 'kn-IN'}, ಶೈಲಿ: ${murfConfig?.style || 'Conversation'}). ಅಧಿಕೃತ ಸ್ಥಳೀಯ ಕನ್ನಡ ಧ್ವನಿ.`
+                      : `Powered by Murf AI Falcon 2.1 (Voice: ${selectedVoiceGender === 'male' ? 'Harman (Male)' : 'Pooja (Female)'}, Locale: ${murfConfig?.locale || 'kn-IN'}, Style: ${murfConfig?.style || 'Conversation'}). Authentic native Kannada speech.`)
+                  : (language === 'kn'
+                      ? 'ಕರ್ನಾಟಕದ ರೈತ ಸಮುದಾಯಕ್ಕಾಗಿ ಕೃಷಿ, ಬೆಳೆ ಮತ್ತು ಸಬ್ಸಿಡಿ ಪದಗಳ ನಿಖರ ಉಚ್ಚಾರಣೆಗೆ ಸಿದ್ಧಪಡಿಸಲಾಗಿದೆ.'
+                      : 'Calibrated for natural Indian cadence, Indic phonetics, and scheme terms. Add MURF_API_KEY in .env for Murf AI Studio voices.')}
               </p>
             </div>
 
             {/* Indian Voice Persona / Gender Selection */}
             <div>
               <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
-                {language === 'kn' ? 'ಧ್ವನಿ ಮಾದರಿ (ಜೆಂಡರ್)' : 'Indian Accent Persona'}
+                {language === 'kn' ? 'ಧ್ವನಿ ಮಾದರಿ (ಜೆಂಡರ್)' : 'Voice Persona & Accent'}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -276,8 +289,12 @@ export default function SettingsPage() {
                   }`}
                 >
                   <div>
-                    <span className="block text-sm">Indian Female</span>
-                    <span className="text-[10px] text-stone-500 font-normal">Heera / Neerja</span>
+                    <span className="block text-sm">
+                      {murfStatus?.murfConfigured ? 'Pooja (Female)' : 'Indian Female'}
+                    </span>
+                    <span className="text-[10px] text-stone-500 font-normal">
+                      {murfStatus?.murfConfigured ? 'Falcon 2.1 • kn-IN • Conversation' : 'Heera / Neerja'}
+                    </span>
                   </div>
                   {selectedVoiceGender === 'female' && <Check className="w-4 h-4 text-emerald-700 flex-shrink-0 ml-1" />}
                 </button>
@@ -292,8 +309,12 @@ export default function SettingsPage() {
                   }`}
                 >
                   <div>
-                    <span className="block text-sm">Indian Male</span>
-                    <span className="text-[10px] text-stone-500 font-normal">Ravi / Prabhat</span>
+                    <span className="block text-sm">
+                      {murfStatus?.murfConfigured ? 'Harman (Male)' : 'Indian Male'}
+                    </span>
+                    <span className="text-[10px] text-stone-500 font-normal">
+                      {murfStatus?.murfConfigured ? 'Falcon 2.1 • kn-IN • Conversation' : 'Ravi / Prabhat'}
+                    </span>
                   </div>
                   {selectedVoiceGender === 'male' && <Check className="w-4 h-4 text-emerald-700 flex-shrink-0 ml-1" />}
                 </button>

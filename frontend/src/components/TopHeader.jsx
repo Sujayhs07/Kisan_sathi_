@@ -7,14 +7,17 @@ export default function TopHeader({ pageTitle = '' }) {
     language,
     toggleLanguage,
     profile,
+    reminders,
     setCurrentPage,
     speakText,
     stopSpeaking,
     t,
     isSpeaking,
-    setIsMobileMenuOpen
+    setIsMobileMenuOpen,
+    logoutUser
   } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
+  const reminderCount = Object.values(reminders || {}).filter(Boolean).length;
 
   // Stop speaking if header unmounts
   useEffect(() => {
@@ -93,13 +96,13 @@ export default function TopHeader({ pageTitle = '' }) {
         </button>
 
         {/* Language Switch Pill: [ಕನ್ನಡ | English] */}
-        <div className="flex items-center p-0.5 sm:p-1 bg-stone-200/80 rounded-full border border-stone-300/80 shadow-inner">
+        <div className="flex items-center p-0.5 sm:p-1 bg-stone-200/90 rounded-full border border-stone-300 shadow-inner">
           <button
             type="button"
             onClick={() => toggleLanguage('kn')}
-            className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all duration-200 ${language === 'kn'
+            className={`px-3 sm:px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ${language === 'kn'
               ? 'bg-forest-900 text-white shadow-xs'
-              : 'text-stone-700 hover:text-stone-950'
+              : 'text-stone-800 hover:text-stone-950'
               }`}
           >
             ಕನ್ನಡ
@@ -107,9 +110,9 @@ export default function TopHeader({ pageTitle = '' }) {
           <button
             type="button"
             onClick={() => toggleLanguage('en')}
-            className={`px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition-all duration-200 ${language === 'en'
+            className={`px-3 sm:px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 ${language === 'en'
               ? 'bg-forest-900 text-white shadow-xs'
-              : 'text-stone-700 hover:text-stone-950'
+              : 'text-stone-800 hover:text-stone-950'
               }`}
           >
             English
@@ -125,7 +128,9 @@ export default function TopHeader({ pageTitle = '' }) {
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5 text-stone-800" />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-maroon-700 rounded-full border-2 border-cream-100" />
+          {reminderCount > 0 && (
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-maroon-700 rounded-full border-2 border-cream-100" />
+          )}
         </button>
 
         {/* User Profile Pill */}
@@ -184,7 +189,7 @@ export default function TopHeader({ pageTitle = '' }) {
               <button
                 type="button"
                 onClick={() => {
-                  setCurrentPage('login');
+                  logoutUser();
                   setShowDropdown(false);
                 }}
                 className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-maroon-700 hover:bg-red-50 flex items-center gap-2 border-t border-stone-100 font-semibold"
