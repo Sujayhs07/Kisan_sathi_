@@ -221,6 +221,56 @@ export default function LoginPage({ initialMode = 'login' }) {
 
       if (!response.ok) {
         if (response.status === 404 || data.code === 'USER_NOT_FOUND') {
+          // Check if user previously registered on this device (cloud ephemeral restart resilience)
+          try {
+            const localSaved = localStorage.getItem(`kisan_local_account_${cleanNum}`);
+            if (localSaved) {
+              const u = JSON.parse(localSaved);
+              const restoreRes = await fetch(getApiUrl('/api/auth/register'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  fullName: u.fullName || u.name,
+                  phoneNumber: cleanNum,
+                  state: u.state || 'Karnataka',
+                  district: u.district || 'Dharwad',
+                  taluk: u.taluk || '',
+                  category: u.category || 'General',
+                  gender: u.gender || undefined,
+                  dob: u.dob || undefined,
+                  landHolding: u.landHolding || '2.0',
+                  cropType: u.cropType || 'Ragi & Cereals',
+                  fruitsId: u.fruitsId || undefined
+                })
+              });
+              if (restoreRes.ok || restoreRes.status === 409) {
+                const retryOtp = await fetch(getApiUrl('/api/auth/send-otp'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    phoneNumber: cleanNum,
+                    purpose: 'LOGIN_VERIFICATION'
+                  })
+                });
+                const retryData = await retryOtp.json();
+                if (retryOtp.ok) {
+                  setUserNotFound(false);
+                  setLoginOtpSent(true);
+                  setSmsDelivered(Boolean(retryData.smsDelivered));
+                  setLoginCountdown(retryData.resendCooldownSeconds || 30);
+                  setLoginOtpBoxes(['', '', '', '', '', '']);
+                  if (retryData.devOtp) {
+                    setDevOtpHint(String(retryData.devOtp));
+                  }
+                  setIsLoading(false);
+                  return;
+                }
+              }
+            }
+          } catch (recoveryErr) {
+            console.warn('Auto-recovery check error:', recoveryErr);
+          }
+
           setUserNotFound(true);
           setLoginError(
             language === 'kn' && data.errorKn
@@ -344,6 +394,11 @@ export default function LoginPage({ initialMode = 'login' }) {
       }
 
       await loginUser(data.user, data.token);
+
+      try {
+        const phoneKey = (data.user.phoneNumber || cleanNum).replace(/\D/g, '');
+        localStorage.setItem(`kisan_local_account_${phoneKey}`, JSON.stringify(data.user));
+      } catch (e) {}
 
       setLoginSuccess(true);
       setTimeout(() => {
@@ -565,6 +620,11 @@ export default function LoginPage({ initialMode = 'login' }) {
       }
 
       await loginUser(data.user, data.token);
+
+      try {
+        const phoneKey = (data.user.phoneNumber || cleanNum).replace(/\D/g, '');
+        localStorage.setItem(`kisan_local_account_${phoneKey}`, JSON.stringify(data.user));
+      } catch (e) {}
 
       setSignupSuccess(true);
       setTimeout(() => {

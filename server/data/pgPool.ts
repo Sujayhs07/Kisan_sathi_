@@ -15,17 +15,29 @@ export async function checkPostgreSqlConnection(): Promise<boolean> {
     }
 
     const Pool = (pgModule.default && pgModule.default.Pool) ? pgModule.default.Pool : pgModule.Pool;
-    pgPool = new Pool({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      database: process.env.DB_NAME || 'kisan_saathi_db',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 3000,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-    });
+    const connectionString = process.env.DATABASE_URL;
+
+    pgPool = connectionString
+      ? new Pool({
+          connectionString,
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+            ? false
+            : { rejectUnauthorized: false }
+        })
+      : new Pool({
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '5432', 10),
+          database: process.env.DB_NAME || 'kisan_saathi_db',
+          user: process.env.DB_USER || 'postgres',
+          password: process.env.DB_PASSWORD || 'postgres',
+          max: 10,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 3000,
+          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+        });
 
     const client = await pgPool.connect();
     const res = await client.query('SELECT NOW() AS server_time, current_database() AS db_name');

@@ -17,6 +17,7 @@ import {
   evaluateDeadlineStatus,
   SUPPORTED_REMINDER_DAYS
 } from '../utils/deadlineUtils';
+import { pgPool, isConnectedToPg } from './pgPool';
 
 export interface StoredUser extends User {
   passwordHash: string;
@@ -141,6 +142,57 @@ class AppDatabase {
       fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
     } catch (err) {
       console.error('Failed to persist database to disk:', err);
+    }
+
+    // Persist to PostgreSQL if connected
+    this.syncToPostgres().catch(() => {});
+  }
+
+  /**
+   * Sync persistent state from live PostgreSQL database
+   */
+  public async syncFromPostgres(): Promise<void> {
+    if (!isConnectedToPg() || !pgPool) return;
+    try {
+      await pgPool.query(`
+        CREATE TABLE IF NOT EXISTS app_state (
+          key VARCHAR(64) PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      const res = await pgPool.query(`SELECT data FROM app_state WHERE key = 'app_db'`);
+      if (res.rows.length > 0 && res.rows[0].data) {
+        const cloudData = res.rows[0].data;
+        if (Array.isArray(cloudData.users) && cloudData.users.length > 0) {
+          this.data = cloudData;
+          console.log(`[PostgreSQL] Persistent cloud state loaded (${cloudData.users.length} accounts, ${cloudData.savedSchemes?.length || 0} saved schemes).`);
+          try {
+            fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
+          } catch {}
+        }
+      } else {
+        await this.syncToPostgres();
+      }
+    } catch (err: any) {
+      console.warn('[PostgreSQL] Cloud DB state sync error:', err.message);
+    }
+  }
+
+  /**
+   * Persist current state to live PostgreSQL database
+   */
+  public async syncToPostgres(): Promise<void> {
+    if (!isConnectedToPg() || !pgPool) return;
+    try {
+      await pgPool.query(
+        `INSERT INTO app_state (key, data, updated_at)
+         VALUES ('app_db', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+        [JSON.stringify(this.data)]
+      );
+    } catch (err: any) {
+      console.warn('[PostgreSQL] Could not persist to cloud database:', err.message);
     }
   }
 

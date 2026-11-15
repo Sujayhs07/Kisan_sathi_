@@ -1872,7 +1872,10 @@ app.all('/api/*', (_req, res) => {
 // ==========================================
 
 async function startServer() {
-  await checkPostgreSqlConnection();
+  const pgConnected = await checkPostgreSqlConnection();
+  if (pgConnected) {
+    await dbStore.syncFromPostgres();
+  }
 
   if (process.env.NODE_ENV === 'production') {
     const frontendDist = path.resolve(__dirname, '..', 'frontend', 'dist');
