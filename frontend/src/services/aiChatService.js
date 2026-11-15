@@ -293,6 +293,277 @@ const STEP_SEQUENCE = [
   'complete'
 ];
 
+function detectUserQuestion(text) {
+  if (!text) return null;
+  const t = text.trim().toLowerCase();
+
+  // Who questions
+  if (
+    /^(who|who\s+(are|is|r)\s+(you|u|this)|neevu\s+yaaru|neev\s+yaaru|yaaru|who\s+are\s+u\??|who\??)$/i.test(t) ||
+    /\b(who\s+are\s+you|who\s+is\s+this|who\s+r\s+u|neevu\s+yaaru)\b/i.test(t) ||
+    /^(ಯಾರು|ನೀವು\s*ಯಾರು|ಯಾರು\s*ನೀವು)\??$/i.test(t)
+  ) {
+    return 'who';
+  }
+
+  // When questions
+  if (
+    /^(when|when\s+will|when\s+is|yaavaga|when\??)$/i.test(t) ||
+    /\b(when\s+will|when\s+do|when\s+can|application\s+date|last\s+date|release\s+date|yaavaga)\b/i.test(t) ||
+    /^(ಯಾವಾಗ|ಯಾವಾಗ\s*ಬರುತ್ತೆ|ಕೊನೆ\s*ದಿನಾಂಕ)\??$/i.test(t)
+  ) {
+    return 'when';
+  }
+
+  // Why questions
+  if (
+    /^(why|why\s+do\s+you|why\s+need|yaake|yaak\s+beku|why\??)$/i.test(t) ||
+    /\b(why\s+do\s+you|why\s+need|why\s+ask|yaake\s+beku)\b/i.test(t) ||
+    /^(ಯಾಕೆ|ಯಾತಕ್ಕೆ|ಯಾಕೆ\s*ಬೇಕು)\??$/i.test(t)
+  ) {
+    return 'why';
+  }
+
+  // What questions
+  if (
+    /^(what|what\s+is\s+this|what\s+is\s+kisan\s+saathi|yenu|enu|what\??)$/i.test(t) ||
+    /\b(what\s+is\s+this|what\s+do\s+you\s+do|what\s+schemes)\b/i.test(t) ||
+    /^(ಏನು|ಏನಿದು|ಇದು\s*ಏನು)\??$/i.test(t)
+  ) {
+    return 'what';
+  }
+
+  // Where questions
+  if (
+    /^(where|where\s+to|elli|where\??)$/i.test(t) ||
+    /\b(where\s+to\s+apply|where\s+is\s+office|nearest\s+centre|elli)\b/i.test(t) ||
+    /^(ಎಲ್ಲಿ|ಎಲ್ಲಿಗೆ\s*ಹೋಗಬೇಕು)\??$/i.test(t)
+  ) {
+    return 'where';
+  }
+
+  // How questions
+  if (
+    /^(how|how\s+to|how\s+does|hege|how\??)$/i.test(t) ||
+    /\b(how\s+to\s+apply|how\s+does\s+it\s+work|hege\s+madodu)\b/i.test(t) ||
+    /^(ಹೇಗೆ|ಹೇಗೆ\s*ಅರ್ಜಿ\s*ಹಾಕುವುದು)\??$/i.test(t)
+  ) {
+    return 'how';
+  }
+
+  // Greeting
+  if (/^(hi|hello|hey|namaskara|namaste|good\s+morning|good\s+afternoon|good\s+evening)$/i.test(t)) {
+    return 'greeting';
+  }
+
+  if (t.includes('?')) {
+    return 'general_question';
+  }
+
+  return null;
+}
+
+function getQuestionAnswer(questionType, step, isKn, _farmerName = '') {
+  const stepPrompts = {
+    name: {
+      fieldEn: 'Full Name',
+      fieldKn: 'ಪೂರ್ಣ ಹೆಸರು',
+      reAskEn: 'What is your official full name?',
+      reAskKn: 'ನಿಮ್ಮ ಅಧಿಕೃತ ಪೂರ್ಣ ಹೆಸರೇನು?',
+      whyEn: 'Your real full name is required to match your records with Karnataka FRUITS (FID) and land RTC/Pahani.',
+      whyKn: 'ಕರ್ನಾಟಕ FRUITS ಪೋರ್ಟಲ್ ಮತ್ತು ಪಹಣಿ (RTC) ದಾಖಲೆಗಳೊಂದಿಗೆ ಪರಿಶೀಲಿಸಲು ನಿಮ್ಮ ನಿಜವಾದ ಹೆಸರು ಅಗತ್ಯ.'
+    },
+    age: {
+      fieldEn: 'Age',
+      fieldKn: 'ವಯಸ್ಸು',
+      reAskEn: 'How old are you in years (e.g. 35)?',
+      reAskKn: 'ನಿಮ್ಮ ವಯಸ್ಸು ಎಷ್ಟು (ಉದಾ: 35)?',
+      whyEn: 'Age is required because schemes have age criteria (e.g., PM-KMY pension is for 18-40 yrs, youth schemes for under 40).',
+      whyKn: 'ಪಿಎಂ-ಕಿಸಾನ್ ಮಾನ್‌ಧನ್ ಪಿಂಚಣಿ (18-40 ವರ್ಷ) ಮತ್ತು ಯುವ ಕೃಷಿ ಯೋಜನೆಗಳಿಗೆ ವಯಸ್ಸಿನ ಮಾನದಂಡ ಅನ್ವಯಿಸುತ್ತದೆ.'
+    },
+    gender: {
+      fieldEn: 'Gender',
+      fieldKn: 'ಲಿಂಗ',
+      reAskEn: 'What is your gender (Male, Female, or Other)?',
+      reAskKn: 'ನಿಮ್ಮ ಲಿಂಗ ಯಾವುದು (ಪುರುಷ, ಮಹಿಳೆ ಅಥವಾ ಇತರ)?',
+      whyEn: 'Women farmers receive up to 90% subsidy and extra bonus subsidies for farm machinery and micro-irrigation.',
+      whyKn: 'ಮಹಿಳಾ ರೈತರಿಗೆ ಕೃಷಿ ಯಂತ್ರೋಪಕರಣ ಮತ್ತು ಹನಿ ನೀರಾವರಿಯಲ್ಲಿ ವಿಶೇಷ ಹೆಚ್ಚುವರಿ ಸಬ್ಸಿಡಿ ಲಭ್ಯವಿದೆ.'
+    },
+    category: {
+      fieldEn: 'Social Category',
+      fieldKn: 'ಸಾಮಾಜಿಕ ವರ್ಗ',
+      reAskEn: 'Which reservation category do you belong to (General, OBC, SC, ST)?',
+      reAskKn: 'ನಿಮ್ಮ ಸಾಮಾಜಿಕ ವರ್ಗ ಯಾವುದು (ಸಾಮಾನ್ಯ, OBC, SC, ST)?',
+      whyEn: 'SC/ST farmers receive up to 90-100% free borewell subsidy under Ganga Kalyana and high subsidies under PMKSY.',
+      whyKn: 'ಗಂಗಾ ಕಲ್ಯಾಣ ಮತ್ತು ಇತರ ಕೃಷಿ ಯೋಜನೆಗಳಲ್ಲಿ SC/ST ರೈತರಿಗೆ 90% ರಿಂದ 100% ವರೆಗೆ ಉಚಿತ ಬೋರ್‌ವೆಲ್ ಸೌಲಭ್ಯವಿದೆ.'
+    },
+    location: {
+      fieldEn: 'District & Taluk',
+      fieldKn: 'ಜಿಲ್ಲೆ ಮತ್ತು ತಾಲೂಕು',
+      reAskEn: 'Which district in Karnataka is your farmland located in?',
+      reAskKn: 'ಕರ್ನಾಟಕದ ಯಾವ ಜಿಲ್ಲೆಯಲ್ಲಿ ನಿಮ್ಮ ಜಮೀನು ಇದೆ?',
+      whyEn: 'Agricultural schemes, drought relief, and Raitha Samparka Kendra benefits are distributed by district.',
+      whyKn: 'ಕೃಷಿ ಭಾಗ್ಯ, ಬರ ಪರಿಹಾರ ಮತ್ತು ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರಗಳ ಯೋಜನೆಗಳು ಜಿಲ್ಲಾವಾರು ಜಾರಿಯಾಗುತ್ತವೆ.'
+    },
+    district: {
+      fieldEn: 'District',
+      fieldKn: 'ಜಿಲ್ಲೆ',
+      reAskEn: 'Which district in Karnataka is your farmland located in?',
+      reAskKn: 'ಕರ್ನಾಟಕದ ಯಾವ ಜಿಲ್ಲೆಯಲ್ಲಿ ನಿಮ್ಮ ಜಮೀನು ಇದೆ?',
+      whyEn: 'Agricultural schemes, drought relief, and Raitha Samparka Kendra benefits are distributed by district.',
+      whyKn: 'ಕೃಷಿ ಭಾಗ್ಯ, ಬರ ಪರಿಹಾರ ಮತ್ತು ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರಗಳ ಯೋಜನೆಗಳು ಜಿಲ್ಲಾವಾರು ಜಾರಿಯಾಗುತ್ತವೆ.'
+    },
+    land: {
+      fieldEn: 'Land Size',
+      fieldKn: 'ಭೂಮಿ ವಿಸ್ತೀರ್ಣ',
+      reAskEn: 'How many acres of agricultural land do you own or cultivate?',
+      reAskKn: 'ನಿಮ್ಮ ಬಳಿ ಎಷ್ಟು ಎಕರೆ ಕೃಷಿ ಭೂಮಿ ಇದೆ?',
+      whyEn: 'Marginal (<2.5 acres) and Small (2.5-5 acres) farmers receive highest priority and maximum DBT subsidies.',
+      whyKn: 'ಅತಿ ಸಣ್ಣ (<2.5 ಎಕರೆ) ಮತ್ತು ಸಣ್ಣ (2.5-5 ಎಕರೆ) ರೈತರಿಗೆ ಗರಿಷ್ಠ ಡಿಬಿಟಿ ಸಹಾಯಧನ ಲಭ್ಯವಿದೆ.'
+    },
+    landHolding: {
+      fieldEn: 'Land Size',
+      fieldKn: 'ಭೂಮಿ ವಿಸ್ತೀರ್ಣ',
+      reAskEn: 'How many acres of agricultural land do you own or cultivate?',
+      reAskKn: 'ನಿಮ್ಮ ಬಳಿ ಎಷ್ಟು ಎಕರೆ ಕೃಷಿ ಭೂಮಿ ಇದೆ?',
+      whyEn: 'Marginal (<2.5 acres) and Small (2.5-5 acres) farmers receive highest priority and maximum DBT subsidies.',
+      whyKn: 'ಅತಿ ಸಣ್ಣ (<2.5 ಎಕರೆ) ಮತ್ತು ಸಣ್ಣ (2.5-5 ಎಕರೆ) ರೈತರಿಗೆ ಗರಿಷ್ಠ ಡಿಬಿಟಿ ಸಹಾಯಧನ ಲಭ್ಯವಿದೆ.'
+    },
+    crop: {
+      fieldEn: 'Primary Crop',
+      fieldKn: 'ಮುಖ್ಯ ಬೆಳೆ',
+      reAskEn: 'Which main crop do you cultivate (e.g. Paddy, Ragi, Sugarcane)?',
+      reAskKn: 'ನೀವು ಮುಖ್ಯವಾಗಿ ಯಾವ ಬೆಳೆ ಬೆಳೆಯುತ್ತೀರಿ (ಉದಾ: ಭತ್ತ, ರಾಗಿ, ಕಬ್ಬು)?',
+      whyEn: 'Certain crops receive special subsidies (e.g. ₹10,000/ha for Millets under Raitha Siri, PMFBY crop insurance for Paddy).',
+      whyKn: 'ಸಿರಿಧಾನ್ಯಗಳಿಗೆ "ರೈತ ಸಿರಿ" ಅಡಿಯಲ್ಲಿ ₹10,000 ಪ್ರೋತ್ಸಾಹಧನ, ಭತ್ತಕ್ಕೆ ಬೆಳೆ ವಿಮೆ ಮತ್ತು ಬೆಂಬಲ ಬೆಲೆ ಸಿಗುತ್ತದೆ.'
+    },
+    cropType: {
+      fieldEn: 'Primary Crop',
+      fieldKn: 'ಮುಖ್ಯ ಬೆಳೆ',
+      reAskEn: 'Which main crop do you cultivate (e.g. Paddy, Ragi, Sugarcane)?',
+      reAskKn: 'ನೀವು ಮುಖ್ಯವಾಗಿ ಯಾವ ಬೆಳೆ ಬೆಳೆಯುತ್ತೀರಿ (ಉದಾ: ಭತ್ತ, ರಾಗಿ, ಕಬ್ಬು)?',
+      whyEn: 'Certain crops receive special subsidies (e.g. ₹10,000/ha for Millets under Raitha Siri, PMFBY crop insurance for Paddy).',
+      whyKn: 'ಸಿರಿಧಾನ್ಯಗಳಿಗೆ "ರೈತ ಸಿರಿ" ಅಡಿಯಲ್ಲಿ ₹10,000 ಪ್ರೋತ್ಸಾಹಧನ, ಭತ್ತಕ್ಕೆ ಬೆಳೆ ವಿಮೆ ಮತ್ತು ಬೆಂಬಲ ಬೆಲೆ ಸಿಗುತ್ತದೆ.'
+    },
+    irrigation: {
+      fieldEn: 'Irrigation Source',
+      fieldKn: 'ನೀರಾವರಿ ಸೌಲಭ್ಯ',
+      reAskEn: 'What is your irrigation facility (Rainfed, Borewell, or Canal)?',
+      reAskKn: 'ನಿಮ್ಮ ನೀರಾವರಿ ಸೌಲಭ್ಯ ಯಾವುದು (ಮಳೆ ಆಶ್ರಿತ, ಬೋರ್‌ವೆಲ್ ಅಥವಾ ಕಾಲುವೆ)?',
+      whyEn: 'Irrigation type determines eligibility for PMKSY drip irrigation, Krishi Bhagya farm ponds, and PM-KUSUM solar pumps.',
+      whyKn: 'ನೀರಾವರಿ ಮೂಲವು PMKSY ಹನಿ ನೀರಾವರಿ, ಕೃಷಿ ಭಾಗ್ಯ ಕೃಷಿ ಹೊಂಡ ಮತ್ತು ಕುಸುಮ್ ಸೌರ ಪಂಪ್ ಸಬ್ಸಿಡಿಗೆ ಮುಖ್ಯವಾಗಿದೆ.'
+    },
+    benefits: {
+      fieldEn: 'FRUITS & Aadhaar DBT',
+      fieldKn: 'ಫ್ರೂಟ್ಸ್ & ಆಧಾರ್ ಡಿಬಿಟಿ',
+      reAskEn: 'Is your bank account Aadhaar-linked and do you have a Karnataka FRUITS ID?',
+      reAskKn: 'ನಿಮ್ಮ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಆಧಾರ್ ಲಿಂಕ್ ಮತ್ತು FRUITS ನೋಂದಣಿ ಆಗಿದೆಯೇ?',
+      whyEn: 'Direct Benefit Transfer (DBT) requires active NPCI Aadhaar seeding and FRUITS registration.',
+      whyKn: 'ಸರ್ಕಾರದ ಸಹಾಯಧನ ನೇರವಾಗಿ ಖಾತೆಗೆ ಜಮೆಯಾಗಲು ಆಧಾರ್ ಡಿಬಿಟಿ ಮತ್ತು FRUITS ನೋಂದಣಿ ಕಡ್ಡಾಯ.'
+    },
+    fruitsId: {
+      fieldEn: 'FRUITS ID',
+      fieldKn: 'FRUITS ನೋಂದಣಿ',
+      reAskEn: 'Do you have a Karnataka FRUITS ID registered?',
+      reAskKn: 'ನಿಮ್ಮ ಬಳಿ ಕರ್ನಾಟಕ ಸರ್ಕಾರದ FRUITS ID ನೋಂದಣಿ ಆಗಿದೆಯೇ?',
+      whyEn: 'Direct Benefit Transfer (DBT) requires FRUITS registration in Karnataka.',
+      whyKn: 'ಕರ್ನಾಟಕ ಸರ್ಕಾರದ ಸಬ್ಸಿಡಿಗಳನ್ನು ನೇರವಾಗಿ ಪಡೆಯಲು FRUITS ID ಅಗತ್ಯ.'
+    },
+    aadhaar: {
+      fieldEn: 'Aadhaar DBT Linking',
+      fieldKn: 'ಆಧಾರ್ ಡಿಬಿಟಿ ಲಿಂಕ್',
+      reAskEn: 'Is your bank account Aadhaar-linked for DBT deposits?',
+      reAskKn: 'ನಿಮ್ಮ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಆಧಾರ್ ಲಿಂಕ್ ಆಗಿದೆಯೇ?',
+      whyEn: 'Direct Benefit Transfer (DBT) deposits can only be credited to Aadhaar-seeded accounts.',
+      whyKn: 'ಸಹಾಯಧನದ ಹಣ ನೇರವಾಗಿ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಬರಲು ಆಧಾರ್ ಲಿಂಕ್ ಕಡ್ಡಾಯ.'
+    }
+  };
+
+  const p = stepPrompts[step] || stepPrompts.name;
+
+  let answerText = '';
+  if (questionType === 'who') {
+    answerText = isKn
+      ? `🤖 ನಾನು ಕಿಸಾನ್ ಸಾಥಿ AI ಸಹಾಯಕ. ಕರ್ನಾಟಕದ ರೈತರಿಗೆ ಲಭ್ಯವಿರುವ 9 ಅಧಿಕೃತ ಕೇಂದ್ರ ಮತ್ತು ರಾಜ್ಯ ಸರ್ಕಾರದ ಯೋಜನೆಗಳು ಹಾಗೂ ಸಬ್ಸಿಡಿಗಳನ್ನು (ಪಿಎಂ-ಕಿಸಾನ್, ಗಂಗಾ ಕಲ್ಯಾಣ, ರೈತ ಸಿರಿ ಇತ್ಯಾದಿ) ಕಂಡುಕೊಳ್ಳಲು ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ.`
+      : `🤖 I am Kisan Saathi AI, an intelligent agricultural assistant for Karnataka farmers. I help you discover and qualify for all official central and Karnataka government schemes (such as PM-KISAN, Ganga Kalyana, Raitha Siri, and PMKSY).`;
+  } else if (questionType === 'when') {
+    answerText = isKn
+      ? `📅 ಯೋಜನೆಗಳ ಅರ್ಜಿ ಸಲ್ಲಿಕೆ ಮತ್ತು ಹಣ ಬಿಡುಗಡೆಯು ಆಯಾ ಯೋಜನೆಗೆ ತಕ್ಕಂತೆ ಇರುತ್ತದೆ: ಉದಾಹರಣೆಗೆ ಪಿಎಂ-ಕಿಸಾನ್ ₹2,000 ಪ್ರತಿ 4 ತಿಂಗಳಿಗೊಮ್ಮೆ ಬರುತ್ತದೆ, ಮತ್ತು ಯಂತ್ರೋಪಕರಣಗಳ ಸಬ್ಸಿಡಿ ಮುಂಗಾರು/ಹಿಂಗಾರು ಹಂಗಾಮಿನಲ್ಲಿ ತೆರೆಯುತ್ತದೆ. ನಿಮ್ಮ ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿದ ತಕ್ಷಣ ನಿಖರವಾದ ದಿನಾಂಕಗಳನ್ನು ನೀಡಲಾಗುವುದು.`
+      : `📅 Benefit schedules and application dates depend on the specific scheme: PM-KISAN transfers ₹2,000 every 4 months, while agricultural equipment and irrigation subsidies open during seasonal windows. Once we evaluate your eligibility, I will list the exact dates and deadlines for each scheme.`;
+  } else if (questionType === 'why') {
+    answerText = isKn
+      ? `💡 ${p.whyKn}`
+      : `💡 ${p.whyEn}`;
+  } else if (questionType === 'what') {
+    answerText = isKn
+      ? `🌾 ಇದು ಕಿಸಾನ್ ಸಾಥಿ ಯೋಜನಾ ಅರ್ಹತಾ ಪರಿಶೀಲಕ. ಕೆಲವೇ ವಿವರಗಳೊಂದಿಗೆ ನೀವು ಅರ್ಹರಾಗಿರುವ ಎಲ್ಲಾ ಸಬ್ಸಿಡಿಗಳು, ಆರ್ಥಿಕ ನೆರವು ಮತ್ತು ಕೃಷಿ ಸೌಲಭ್ಯಗಳನ್ನು ಇಲ್ಲಿ ತಿಳಿಯಬಹುದು.`
+      : `🌾 This is the Kisan Saathi Eligibility Checker. By answering a few quick questions about your farm, our deterministic rules engine matches you with all qualifying subsidies, financial aid, and equipment grants.`;
+  } else if (questionType === 'where') {
+    answerText = isKn
+      ? `📍 ಅರ್ಹತೆ ಖಚಿತವಾದ ನಂತರ, ನೀವು ಅಧಿಕೃತ ಪೋರ್ಟಲ್‌ಗಳ (FRUITS, Seva Sindhu) ಮೂಲಕ ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಅಥವಾ ನಿಮ್ಮ ಸಮೀಪದ ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರದಲ್ಲಿ (RSK) ಅರ್ಜಿ ಸಲ್ಲಿಸಬಹುದು.`
+      : `📍 Once evaluated, you can apply online through official government portals (FRUITS, Seva Sindhu) or visit your nearest Raitha Samparka Kendra (RSK).`;
+  } else if (questionType === 'how') {
+    answerText = isKn
+      ? `⚙️ ಇದು ಸರಳವಾಗಿದೆ: ನಿಮ್ಮ ಜಮೀನು, ಬೆಳೆ ಮತ್ತು ನೀರಾವರಿಯ ವಿವರಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಿ, ನಮ್ಮ ವ್ಯವಸ್ಥೆಯು ನೀವು ಪಡೆಯಬಹುದಾದ ಯೋಜನೆಗಳನ್ನು ತಕ್ಷಣವೇ ಪಟ್ಟಿ ಮಾಡುತ್ತದೆ.`
+      : `⚙️ It is very simple: share a few details about your land, crop, and irrigation, and our automated system will instantly calculate the schemes you qualify for.`;
+  } else if (questionType === 'greeting') {
+    answerText = isKn
+      ? `🙏 ನಮಸ್ಕಾರ! ಕಿಸಾನ್ ಸಾಥಿ ಯೋಜನಾ ಪೋರ್ಟಲ್‌ಗೆ ಸುಸ್ವಾಗತ.`
+      : `🙏 Namaskara! Welcome to Kisan Saathi.`;
+  } else {
+    answerText = isKn
+      ? `ಧನ್ಯವಾದಗಳು. ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಗಮನಿಸಲಾಗಿದೆ. ಅಧಿಕೃತ ಯೋಜನೆಗಳ ಪರಿಶೀಲನೆಗೆ ನಿಮ್ಮ ಕೃಷಿ ಪ್ರೊಫೈಲ್ ವಿವರಗಳು ಅಗತ್ಯವಿದೆ.`
+      : `Thank you for your question. To evaluate government schemes accurately, we need to collect your verified farm details.`;
+  }
+
+  const promptFollowUp = isKn
+    ? `\n\n👉 ನಿಮ್ಮ ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಲು, ದಯವಿಟ್ಟು ${p.fieldKn} ತಿಳಿಸಿ:\n"${p.reAskKn}"`
+    : `\n\n👉 To evaluate your matching schemes, please provide your ${p.fieldEn}:\n"${p.reAskEn}"`;
+
+  return answerText + promptFollowUp;
+}
+
+function isInvalidFarmerName(name) {
+  if (!name) return true;
+  const n = name.trim().toLowerCase().replace(/[.,!?;:'"()]/g, '');
+
+  if (n.length < 2 || n.length > 50) return true;
+
+  const blacklisted = new Set([
+    'who', 'when', 'why', 'what', 'where', 'how', 'which', 'whose', 'whom',
+    'i', 'me', 'my', 'mine', 'you', 'your', 'yours', 'u', 'he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its',
+    'we', 'us', 'our', 'ours', 'they', 'them', 'their', 'theirs',
+    'farmer', 'raitha', 'raitharu', 'user', 'admin', 'guest', 'test', 'tester', 'testing',
+    'nobody', 'no one', 'someone', 'anyone', 'everybody', 'everyone',
+    'bot', 'ai', 'assistant', 'robot', 'person', 'human', 'sir', 'madam', 'bro', 'friend', 'brother', 'sister',
+    'yes', 'no', 'ok', 'okay', 'hi', 'hello', 'hey', 'namaskara', 'namaste', 'bye', 'good', 'bad', 'fine',
+    'thanks', 'thank you', 'please', 'help', 'sure', 'yep', 'nope',
+    'dont know', 'dontknow', 'idk', 'unknown', 'skip', 'null', 'nil', 'none', 'nothing', 'nan',
+    'ರೈತ', 'ರೈತರು', 'ನಾನು', 'ನೀವು', 'ಅವರು', 'ಯಾರೋ', 'ಹೆಸರಿಲ್ಲ', 'ಯಾರು', 'ಏನು', 'ಯಾವಾಗ', 'ಯಾಕೆ', 'ಎಲ್ಲಿ', 'ಹೇಗೆ', 'ಗೊತ್ತಿಲ್ಲ', 'ತಿಳಿದಿಲ್ಲ'
+  ]);
+
+  if (blacklisted.has(n)) return true;
+
+  // Starting with question words
+  if (/^(who|when|why|what|where|how|which)\b/i.test(n)) return true;
+  if (/^(ಯಾರು|ಏನು|ಯಾವಾಗ|ಯಾಕೆ|ಎಲ್ಲಿ|ಹೇಗೆ)\b/i.test(n)) return true;
+
+  // Has digits or special symbols
+  if (/[0-9!@#$%^&*_+={}\[\]<>~`]/.test(name)) return true;
+
+  // Repeated single character like "aaaa", "zzzz"
+  if (/^(.)\1+$/.test(n)) return true;
+
+  // Keyboard mash
+  if (/^(asdf|qwerty|zxcv|ghjk|hjkl|qwer|asdfg|xyz|abc|1234?)$/i.test(n)) return true;
+
+  // Must contain at least two letters (Latin or Kannada)
+  const letters = n.match(/[a-zA-Z\u0C80-\u0CFF]/g);
+  if (!letters || letters.length < 2) return true;
+
+  return false;
+}
+
 function isUnknownOrEvasiveInput(text) {
   if (!text) return true;
   const t = text.trim().toLowerCase();
@@ -301,7 +572,9 @@ function isUnknownOrEvasiveInput(text) {
     /^(idk|dontknow|no\s+idea|not\s+sure|unsure|cannot\s+say|dunno|no\s+clue|dont\s+know|do\s+not\s+know)$/i.test(t) ||
     /^(gott?h?illa|nanage\s+gott?h?illa|tilidilla|gothilla|gothu\s+illa|gottilla)$/i.test(t) ||
     /^(none|nothing|no|illa|nahi|na|nil|null|nan)$/i.test(t) ||
-    /^(test|fake|asdf|qwerty|xyz|abc|aaa|123|1234|foo|bar|dummy|unknown|random|skip)$/i.test(t)
+    /^(test|fake|asdf|qwerty|xyz|abc|aaa|123|1234|foo|bar|dummy|unknown|random|skip)$/i.test(t) ||
+    /^(who|when|why|what|where|how|which|whose|whom)$/i.test(t) ||
+    /^(ಯಾರು|ಏನು|ಯಾವಾಗ|ಯಾಕೆ|ಎಲ್ಲಿ|ಹೇಗೆ)$/i.test(t)
   );
 }
 
@@ -531,17 +804,51 @@ function evaluateClientConversationStep({
     };
   }
 
+  // Handle user questions / counter-inquiries (e.g. "who", "when", "why", "what", "where", "how")
+  const userQuestionType = detectUserQuestion(rawInput);
+  if (userQuestionType) {
+    const questionReply = getQuestionAnswer(userQuestionType, currentStep, isKn, updatedProfile.fullName);
+    const currentStepConfig = QUESTION_FLOW[currentStep]?.[language] || QUESTION_FLOW[currentStep]?.en;
+    const currentIndex = STEP_SEQUENCE.indexOf(currentStep);
+    const hasCaptured = Boolean(
+      updatedProfile.fullName ||
+      updatedProfile.district ||
+      updatedProfile.landHolding ||
+      updatedProfile.landType ||
+      updatedProfile.cropType
+    );
+    const stepOptions = [...(currentStepConfig?.options || [])];
+    if (hasCaptured && !stepOptions.some(o => o.value === 'EVALUATE_NOW')) {
+      stepOptions.push({
+        label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+        value: "EVALUATE_NOW",
+        subtext: isKn ? "ದಾಖಲಾದ ವಿವರಗಳೊಂದಿಗೆ" : "With captured details"
+      });
+    }
+
+    return {
+      success: true,
+      source: 'client_fallback',
+      reply: questionReply,
+      nextStep: currentStep,
+      options: stepOptions,
+      placeholder: currentStepConfig?.placeholder || '',
+      updatedProfile,
+      isComplete: false,
+      stepProgress: Math.round(((currentIndex) / (STEP_SEQUENCE.length - 1)) * 100)
+    };
+  }
+
   // Input Validation per step
   let validationError = null;
 
   switch (currentStep) {
     case 'name': {
       const extracted = rawInput.replace(/^(my name is|i am|nan hesaru|nanu)\s+/i, '').trim();
-      const hasLetters = /[a-zA-Z\u0C80-\u0CFF]/.test(extracted);
-      if (isUnknownOrEvasiveInput(rawInput) || !hasLetters || extracted.length < 2) {
+      if (isUnknownOrEvasiveInput(rawInput) || isInvalidFarmerName(extracted)) {
         validationError = isKn
-          ? "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಮತ್ತು FRUITS ನೋಂದಣಿಗೆ ರೈತರ ಅಧಿಕೃತ ಹೆಸರು ಅಗತ್ಯವಿದೆ. 'ಗೊತ್ತಿಲ್ಲ' ಅಥವಾ ಅಮಾನ್ಯ ಹೆಸರುಗಳನ್ನು ಸ್ವೀಕರಿಸಲಾಗುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ತಿಳಿಸಿ (ಉದಾ: ರಮೇಶ್ ಗೌಡ ಅಥವಾ ಲಕ್ಷ್ಮಿ ದೇವಿ), ಅಥವಾ ಕೆಳಗಿನ ಆಯ್ಕೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಆರಿಸಿ."
-          : "A valid farmer name is required by government scheme registries (e.g. FRUITS, RTC records). Answers like 'I don't know' or random letters cannot be accepted. Please state your full name (for example, 'Ramesh Gowda' or 'Lakshmi Devi'), or select one of the suggested names below.";
+          ? `'${extracted || rawInput}' ಎಂಬುದು ವ್ಯಕ್ತಿಯ ಮಾನ್ಯ ಹೆಸರಲ್ಲ. ಅಧಿಕೃತ FRUITS ಮತ್ತು ಪಹಣಿ (RTC) ದಾಖಲೆಗಳಲ್ಲಿರುವ ನಿಮ್ಮ ಅಧಿಕೃತ ಪೂರ್ಣ ಹೆಸರು ಅಗತ್ಯವಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ತಿಳಿಸಿ (ಉದಾ: ರಮೇಶ್ ಗೌಡ ಅಥವಾ ಲಕ್ಷ್ಮಿ ದೇವಿ), ಅಥವಾ ಕೆಳಗಿನ ಆಯ್ಕೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಆರಿಸಿ.`
+          : `'${extracted || rawInput}' is not a valid person's name. Official Karnataka scheme registries (FRUITS and RTC records) require the farmer's real legal name. Please state your full name (for example, 'Ramesh Gowda' or 'Lakshmi Devi'), or select one of the suggested names below.`;
       } else {
         updatedProfile.fullName = extracted;
       }

@@ -213,6 +213,37 @@ async function run() {
     return `Correctly blocked evasive input, remained on name step`;
   });
 
+  // Test 8b2: Chatbot Evaluates Question "Who" / "Who are you" & Re-prompts for Name
+  await check('Chatbot Input Evaluation: Answer "Who" and Re-Prompt for Name', async () => {
+    const payload = { step: 'name', language: 'en', message: "Who" };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'name') {
+      throw new Error(`Expected assistant to remain on step 'name', got ${res.data.nextStep}`);
+    }
+    if (res.data.updatedProfile?.fullName === "Who" || res.data.updatedProfile?.fullName === "who") {
+      throw new Error('Question word "Who" was incorrectly stored as the farmer\'s name!');
+    }
+    if (!res.data.reply.includes('Kisan Saathi AI')) {
+      throw new Error('Assistant did not answer who it is!');
+    }
+    return 'Correctly answered who it is and re-prompted for real name';
+  });
+
+  // Test 8b3: Chatbot Evaluates Question "When" and Re-prompts for Current Step
+  await check('Chatbot Input Evaluation: Answer "When" on Age Step & Re-Prompt', async () => {
+    const payload = { step: 'age', language: 'en', message: "When will I get money?" };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'age') {
+      throw new Error(`Expected assistant to remain on step 'age', got ${res.data.nextStep}`);
+    }
+    if (!res.data.reply.includes('PM-KISAN') && !res.data.reply.includes('Benefit schedules')) {
+      throw new Error('Assistant did not explain schedule/deadlines for "when" question');
+    }
+    return 'Correctly answered schedule query and re-prompted for age';
+  });
+
   // Test 8c: Chatbot Rejection of Invalid Age
   await check('Chatbot Input Validation: Reject Invalid Age', async () => {
     const payload = { step: 'age', language: 'en', message: "gothilla" };
