@@ -5,7 +5,7 @@
 [![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%205-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20CSS%20v3-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Node.js](https://img.shields.io/badge/API%20Server-Node.js%20%2B%20Express-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Tests](https://img.shields.io/badge/Integration%20Tests-23%2F23%20Passed-brightgreen)](#-automated-integration-tests)
+[![Tests](https://img.shields.io/badge/Integration%20Tests-25%2F25%20Passed-brightgreen)](#-automated-integration-tests)
 [![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel&logoColor=white)](https://vercel.com/)
 [![Render](https://img.shields.io/badge/Deploy-Render-46E3B7?logo=render&logoColor=white)](https://render.com/)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20Cloud%20Ready-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
@@ -17,20 +17,36 @@
 
 ## 📖 Table of Contents
 
-1. [About the Project (Topic Overview)](#-about-the-project-topic-overview)
-2. [Problem Statement & Background](#-problem-statement--background)
-3. [Key Capabilities & Features](#-key-capabilities--features)
-4. [Catalog of Covered Government Schemes](#-catalog-of-covered-government-schemes)
-5. [System Architecture](#-system-architecture)
-6. [Folder & Directory Structure](#-folder--directory-structure)
-7. [System Requirements & Dependencies](#-system-requirements--dependencies)
-8. [How to Run in Localhost (Step-by-Step Guide)](#-how-to-run-in-localhost-step-by-step-guide)
-9. [Automated Integration Tests (23/23 Passing)](#-automated-integration-tests)
-10. [Cloud Deployment Guide (Vercel + Render)](#-cloud-deployment-guide-vercel--render)
-11. [Database Persistence: PostgreSQL & Device Resilience](#-database-persistence-postgresql--device-resilience)
-12. [Default Demo Credentials & Testing](#-default-demo-credentials--testing)
-13. [REST API Documentation](#-rest-api-documentation)
-14. [License & Acknowledgements](#-license--acknowledgements)
+1. [Our Hackathon Journey (Blog Post)](#-our-hackathon-journey)
+2. [About the Project (Topic Overview)](#-about-the-project-topic-overview)
+3. [Problem Statement & Background](#-problem-statement--background)
+4. [Key Capabilities & Features](#-key-capabilities--features)
+5. [Catalog of Covered Government Schemes](#-catalog-of-covered-government-schemes)
+6. [System Architecture](#-system-architecture)
+7. [Folder & Directory Structure](#-folder--directory-structure)
+8. [System Requirements & Dependencies](#-system-requirements--dependencies)
+9. [How to Run in Localhost (Step-by-Step Guide)](#-how-to-run-in-localhost-step-by-step-guide)
+10. [Automated Integration Tests (25/25 Passing)](#-automated-integration-tests)
+11. [Cloud Deployment Guide (Vercel + Render)](#-cloud-deployment-guide-vercel--render)
+12. [Database Persistence: PostgreSQL & Device Resilience](#-database-persistence-postgresql--device-resilience)
+13. [Default Demo Credentials & Testing](#-default-demo-credentials--testing)
+14. [REST API Documentation](#-rest-api-documentation)
+15. [License & Acknowledgements](#-license--acknowledgements)
+
+---
+
+## 📝 Our Hackathon Journey
+
+We built **Kisan Scheme Saathi (ಕಿಸಾನ್ ಸ್ಕೀಮ್ ಸಾಥಿ)** during a 24-hour hackathon to make government welfare schemes more accessible to farmers in Karnataka.
+
+From Kannada voice integration and deterministic eligibility matching to late-night debugging and challenging judging rounds, this project was an incredible learning experience.
+
+We documented our complete journey, including the architecture decisions, technical challenges, lessons learned, and future plans.
+
+📖 **Read our DEV Community article:**  
+👉 **[We Built Kisan Scheme Saathi in 24 Hours: Our Hackathon Journey, 3 AM Bugs, and Lessons from the Judges](https://dev.to/sujay_hs_b482e14368c435a/how-we-built-kisan-saathi-in-24-hours-surviving-3-am-bugs-voice-ai-in-kannada-and-building-for-590e)**
+
+🌐 **Live Demo:** [https://kisansathi-frontend-tau.vercel.app](https://kisansathi-frontend-tau.vercel.app)
 
 ---
 
@@ -251,9 +267,9 @@ Open **`http://localhost:3000`** in your browser.
 
 ---
 
-## 🧪 Automated Integration Tests
+## 🧪 Automated Integration Tests (25/25 Passing)
 
-The project includes an end-to-end integration test harness ([`server/tests/integration.test.ts`](file:///e:/Kisan%20Saathi/server/tests/integration.test.ts)) executing **23 comprehensive assertions**:
+The project includes an end-to-end integration test harness ([`server/tests/integration.test.ts`](file:///e:/Kisan%20Saathi/server/tests/integration.test.ts)) executing **25 comprehensive assertions**:
 
 ```
 ======================================================
@@ -269,6 +285,8 @@ The project includes an end-to-end integration test harness ([`server/tests/inte
   ✓ [PASS] Eligibility Engine Output Distinction (Large General Sugarcane Farmer)
   ✓ [PASS] Conversational Chatbot Endpoint (/api/eligibility-chat) (Advanced to age)
   ✓ [PASS] Chatbot Input Validation: Reject "I don't know" for Name (Evasive input blocked)
+  ✓ [PASS] Chatbot Input Evaluation: Answer "Who" and Re-Prompt for Name (Correctly answered who it is and re-prompted)
+  ✓ [PASS] Chatbot Input Evaluation: Answer "When" on Age Step & Re-Prompt (Correctly answered schedule query and re-prompted)
   ✓ [PASS] Chatbot Input Validation: Reject Invalid Age (Age boundaries enforced)
   ✓ [PASS] Chatbot Confirmation: Aadhaar advances to Confirm Step (Summary card rendered)
   ✓ [PASS] Chatbot Confirmation: No/Change routes to Edit Options (Targeted edit choices)
@@ -285,7 +303,7 @@ The project includes an end-to-end integration test harness ([`server/tests/inte
   ✓ [PASS] Check User Database Endpoint (/api/auth/check-user)
 
 ======================================================
-TOTAL SUITE RESULTS: 23/23 PASSED
+TOTAL SUITE RESULTS: 25/25 PASSED
 ✅ ALL BACKEND AND DATABASE LOGIC TESTED 100% BUG-FREE!
 ======================================================
 ```
