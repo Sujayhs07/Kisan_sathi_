@@ -189,13 +189,122 @@ async function run() {
     }
   );
 
-  // Test 8: Eligibility Chatbot Endpoint
+  // Test 8: Eligibility Chatbot Endpoint - Valid Name advances to Age
   await check('Conversational Chatbot Endpoint (/api/eligibility-chat)', async () => {
     const payload = { step: 'name', language: 'en', message: 'Sujay H S' };
     const res = await req('POST', '/api/eligibility-chat', payload);
     if (res.status !== 200) throw new Error(`Status ${res.status}`);
     if (!res.data.reply) throw new Error('Missing reply');
-    return `Reply: "${res.data.reply.slice(0, 40)}..."`;
+    if (res.data.nextStep !== 'age') throw new Error(`Expected nextStep age, got ${res.data.nextStep}`);
+    return `Advanced to age, reply: "${res.data.reply.slice(0, 30)}..."`;
+  });
+
+  // Test 8b: Chatbot Rejection of Evasive Answer "I don't know"
+  await check('Chatbot Input Validation: Reject "I don\'t know" for Name', async () => {
+    const payload = { step: 'name', language: 'en', message: "i don't know" };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'name') {
+      throw new Error(`Expected assistant to remain on step 'name', got ${res.data.nextStep}`);
+    }
+    if (res.data.updatedProfile?.fullName === "i don't know") {
+      throw new Error('Evasive "i don\'t know" was improperly saved as farmer name');
+    }
+    return `Correctly blocked evasive input, remained on name step`;
+  });
+
+  // Test 8c: Chatbot Rejection of Invalid Age
+  await check('Chatbot Input Validation: Reject Invalid Age', async () => {
+    const payload = { step: 'age', language: 'en', message: "gothilla" };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'age') {
+      throw new Error(`Expected assistant to remain on step 'age', got ${res.data.nextStep}`);
+    }
+    return `Correctly rejected invalid age, remained on age step`;
+  });
+
+  // Test 8d: Chatbot Confirmation Step Transition
+  await check('Chatbot Confirmation: Aadhaar advances to Confirm Step', async () => {
+    const collectedProfile = {
+      fullName: 'Ramesh Gowda',
+      age: 45,
+      gender: 'Male',
+      category: 'OBC',
+      district: 'Mandya',
+      landHolding: '3.5',
+      landHoldingAcres: 3.5,
+      cropType: 'Paddy',
+      irrigationType: 'Borewell',
+      hasWaterSource: true,
+      hasFruitsId: true
+    };
+    const payload = {
+      step: 'aadhaar',
+      language: 'en',
+      message: 'Yes, Bank Aadhaar Linked',
+      collectedProfile
+    };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'confirm') {
+      throw new Error(`Expected nextStep 'confirm', got ${res.data.nextStep}`);
+    }
+    if (!res.data.reply.includes('Farmer Profile Summary')) {
+      throw new Error('Expected profile summary in reply text');
+    }
+    const hasYesOption = res.data.options?.some((o: any) => o.value === 'CONFIRM_YES');
+    if (!hasYesOption) throw new Error('Missing CONFIRM_YES option');
+    return `Summary card generated with confirmation options`;
+  });
+
+  // Test 8e: Chatbot Confirmation Rejection (Farmer wants to edit)
+  await check('Chatbot Confirmation: No/Change routes to Edit Options', async () => {
+    const payload = {
+      step: 'confirm',
+      language: 'en',
+      message: 'CONFIRM_NO',
+      collectedProfile: { fullName: 'Ramesh Gowda', landHoldingAcres: 3.5 }
+    };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (res.data.nextStep !== 'confirm_edit') {
+      throw new Error(`Expected nextStep 'confirm_edit', got ${res.data.nextStep}`);
+    }
+    const hasEditLand = res.data.options?.some((o: any) => o.value === 'EDIT_LAND');
+    if (!hasEditLand) throw new Error('Missing EDIT_LAND option');
+    return `Offered field-specific edit options`;
+  });
+
+  // Test 8f: Chatbot Confirmation Approval Evaluates Schemes
+  await check('Chatbot Confirmation: Yes Evaluates Schemes', async () => {
+    const collectedProfile = {
+      fullName: 'Ramesh Gowda',
+      age: 45,
+      gender: 'Male',
+      category: 'OBC',
+      district: 'Mandya',
+      landHolding: '3.5',
+      landHoldingAcres: 3.5,
+      cropType: 'Paddy',
+      irrigationType: 'Borewell',
+      hasWaterSource: true,
+      hasFruitsId: true,
+      hasAadhaarBankLinked: true
+    };
+    const payload = {
+      step: 'confirm',
+      language: 'en',
+      message: 'CONFIRM_YES',
+      collectedProfile
+    };
+    const res = await req('POST', '/api/eligibility-chat', payload);
+    if (res.status !== 200) throw new Error(`Status ${res.status}`);
+    if (!res.data.isComplete) throw new Error('Expected isComplete to be true');
+    if (!Array.isArray(res.data.evaluatedSchemes) || res.data.evaluatedSchemes.length === 0) {
+      throw new Error('Expected evaluatedSchemes array with results');
+    }
+    return `Confirmed and successfully evaluated ${res.data.evaluatedSchemes.length} schemes`;
   });
 
   // Test 9: Auth Registration & Live Token Creation

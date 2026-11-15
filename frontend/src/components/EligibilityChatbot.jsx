@@ -88,7 +88,7 @@ function TypewriterText({ text, isLatest, onFinished }) {
 
   return (
     <div>
-      <p className="leading-relaxed">
+      <p className="leading-relaxed whitespace-pre-line">
         {displayed}
         {isTyping && (
           <span className="inline-block w-1.5 h-4 ml-1 bg-forest-700 animate-pulse align-middle" />
@@ -254,6 +254,14 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
     setActiveSpeakingMsgId(null);
     const trimmed = (textToSend || inputText).trim();
     if (!trimmed && customValue === null) return;
+
+    // If user clicked "Review in Form Mode", switch to form immediately
+    if (customValue === 'CONFIRM_EDIT_FORM' || textToSend === 'CONFIRM_EDIT_FORM' || trimmed === 'CONFIRM_EDIT_FORM') {
+      if (onSwitchToForm) {
+        onSwitchToForm();
+        return;
+      }
+    }
 
     const displayMsg = trimmed || (typeof customValue === 'object' ? JSON.stringify(customValue) : String(customValue));
 
@@ -578,7 +586,7 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
                       onFinished={() => handleTypewriterFinished(msg.id, msg.text)}
                     />
                   ) : (
-                    <p>{msg.text}</p>
+                    <p className="whitespace-pre-line">{msg.text}</p>
                   )}
                 </div>
 

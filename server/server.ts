@@ -1312,6 +1312,18 @@ Farmer's specific question: "${userQuestion || 'Can you explain why I received t
 // CONVERSATIONAL AI ELIGIBILITY CHAT ENDPOINT
 // ==========================================
 
+function isUnknownOrEvasiveInput(text: string): boolean {
+  if (!text) return true;
+  const t = text.trim().toLowerCase();
+  return (
+    /^(i\s+)?(don'?t|do\s+not)\s+know/i.test(t) ||
+    /^(idk|dontknow|no\s+idea|not\s+sure|unsure|cannot\s+say|dunno|no\s+clue)$/i.test(t) ||
+    /^(gott?h?illa|nanage\s+gott?h?illa|tilidilla|gothilla)$/i.test(t) ||
+    /^(none|nothing|no|illa|nahi|na|nil|null|nan)$/i.test(t) ||
+    /^(test|fake|asdf|qwerty|xyz|abc|aaa|123|1234|foo|bar|dummy|unknown)$/i.test(t)
+  );
+}
+
 const CHAT_FLOW_CONFIG: Record<string, {
   next: string | null;
   en: { question: string; options?: Array<{ label: string; value: any }> };
@@ -1481,7 +1493,7 @@ const CHAT_FLOW_CONFIG: Record<string, {
     }
   },
   aadhaar: {
-    next: null,
+    next: 'confirm',
     en: {
       question: "Is your bank account linked and NPCI seeded with your Aadhaar for Direct Benefit Transfer (DBT)?",
       options: [
@@ -1496,8 +1508,74 @@ const CHAT_FLOW_CONFIG: Record<string, {
         { label: "ಖಚಿತವಿಲ್ಲ / ಆಗಿಲ್ಲ", value: "false" }
       ]
     }
+  },
+  confirm: {
+    next: null,
+    en: {
+      question: "Please confirm your farm profile details.",
+      options: [
+        { label: "Yes, Details Are Correct", value: "CONFIRM_YES" },
+        { label: "No, Want to Change", value: "CONFIRM_NO" },
+        { label: "Review in Form Mode", value: "CONFIRM_EDIT_FORM" }
+      ]
+    },
+    kn: {
+      question: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಕೃಷಿ ಪ್ರೊಫೈಲ್ ವಿವರಗಳನ್ನು ದೃಢೀಕರಿಸಿ.",
+      options: [
+        { label: "ಹೌದು, ವಿವರಗಳು ಸರಿಯಾಗಿವೆ", value: "CONFIRM_YES" },
+        { label: "ಇಲ್ಲ, ಬದಲಾಯಿಸಬೇಕು", value: "CONFIRM_NO" },
+        { label: "ಫಾರ್ಮ್‌ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿ", value: "CONFIRM_EDIT_FORM" }
+      ]
+    }
   }
 };
+
+function formatProfileSummary(profile: any, isKn: boolean): string {
+  const name = profile.fullName || (isKn ? 'ರೈತರು' : 'Farmer');
+  const age = profile.age ? `${profile.age} ${isKn ? 'ವರ್ಷ' : 'Yrs'}` : (isKn ? 'ತಿಳಿಸಿಲ್ಲ' : 'Not specified');
+  const gender = profile.gender || (isKn ? 'ಪುರುಷ' : 'Male');
+  const category = profile.category || (isKn ? 'ಸಾಮಾನ್ಯ' : 'General');
+  const district = profile.district ? `${profile.district}, ಕರ್ನಾಟಕ` : (isKn ? 'ಕರ್ನಾಟಕ' : 'Karnataka');
+  const land = profile.landHolding ? `${profile.landHolding} ${isKn ? 'ಎಕರೆ' : 'Acres'}` : (isKn ? '2.5 ಎಕರೆ' : '2.5 Acres');
+  const crop = profile.cropType || (isKn ? 'ಭತ್ತ' : 'Paddy');
+  const irrigation = profile.irrigationType || (isKn ? 'ಮಳೆ ಆಶ್ರಿತ' : 'Rainfed');
+  const fruits = profile.hasFruitsId || profile.fruitsRegistered
+    ? (isKn ? 'ಹೌದು (FRUITS ID ಇದೆ)' : 'Registered (FRUITS active)')
+    : (isKn ? 'ಇಲ್ಲ / ಬಾಕಿ' : 'Not registered');
+  const aadhaar = profile.hasAadhaarBankLinked || profile.aadhaarLinked
+    ? (isKn ? 'ಹೌದು (DBT ಲಿಂಕ್ ಆಗಿದೆ)' : 'Linked (DBT active)')
+    : (isKn ? 'ಖಚಿತವಿಲ್ಲ / ಬಾಕಿ' : 'Not linked');
+
+  if (isKn) {
+    return (
+      `📋 ನಿಮ್ಮ ಕೃಷಿ ಪ್ರೊಫೈಲ್ ಸಾರಾಂಶ:\n` +
+      `• ಹೆಸರು: ${name}\n` +
+      `• ವಯಸ್ಸು & ಲಿಂಗ: ${age}, ${gender}\n` +
+      `• ಸಾಮಾಜಿಕ ವರ್ಗ: ${category}\n` +
+      `• ಜಮೀನಿನ ಸ್ಥಳ: ${district}\n` +
+      `• ಕೃಷಿ ಭೂಮಿ: ${land}\n` +
+      `• ಮುಖ್ಯ ಬೆಳೆ: ${crop}\n` +
+      `• ನೀರಾವರಿ: ${irrigation}\n` +
+      `• ದಾಖಲೆಗಳು: FRUITS (${fruits}), ಆಧಾರ್ DBT (${aadhaar})\n\n` +
+      `⚠️ ದೃಢೀಕರಣ ಅಗತ್ಯ:\n` +
+      `ರೈತರು ಕೆಲವೊಮ್ಮೆ ತಿಳಿಯದೆ ತಪ್ಪು ಮಾಹಿತಿ ನೀಡಿರಬಹುದು. ಅಧಿಕೃತ ಯೋಜನೆಗಳ ಪರಿಶೀಲನೆಗೆ ಮುನ್ನ, ಮೇಲಿನ ಎಲ್ಲಾ ವಿವರಗಳು ಸರಿಯಾಗಿವೆಯೇ ಎಂದು ದಯವಿಟ್ಟು ದೃಢೀಕರಿಸಿ.`
+    );
+  }
+
+  return (
+    `📋 Farmer Profile Summary:\n` +
+    `• Name: ${name}\n` +
+    `• Age & Gender: ${age}, ${gender}\n` +
+    `• Social Category: ${category}\n` +
+    `• Location: ${district}\n` +
+    `• Cultivated Land: ${land}\n` +
+    `• Primary Crop: ${crop}\n` +
+    `• Irrigation: ${irrigation}\n` +
+    `• Documents: FRUITS ID (${fruits}), Aadhaar DBT (${aadhaar})\n\n` +
+    `⚠️ Confirmation Required:\n` +
+    `Farmers sometimes enter approximate or incorrect information by mistake. Please confirm if these details are correct before we evaluate your verified scheme eligibility.`
+  );
+}
 
 app.post('/api/eligibility-chat', async (req, res) => {
   try {
@@ -1506,103 +1584,274 @@ app.post('/api/eligibility-chat', async (req, res) => {
     const langKey = isKn ? 'kn' : 'en';
 
     const updatedProfile = { ...collectedProfile };
-    const cleanInput = (message || '').trim();
+    const rawInput = (message || '').trim();
 
-    // Update profile from user's current response
-    if (step === 'name' && cleanInput) {
-      updatedProfile.fullName = cleanInput.replace(/^(my name is|i am|nan hesaru|nanu)\s+/i, '');
+    // Handle Confirmation Step
+    if (step === 'confirm') {
+      const lower = rawInput.toLowerCase();
+      const isConfirmed =
+        rawInput === 'CONFIRM_YES' ||
+        /^(yes|correct|right|true|accurate|ha|haa|sari|houdu|ಹೌದು|ಸರಿ|ಖಚಿತ|ok|okay)$/i.test(lower);
+
+      const isDeclined =
+        rawInput === 'CONFIRM_NO' ||
+        /^(no|nope|wrong|change|modify|edit|tappu|illa|ಇಲ್ಲ|ತಪ್ಪು|ಬದಲಾವಣೆ)$/i.test(lower);
+
+      if (isConfirmed) {
+        // Complete and evaluate schemes
+        const farmerProfile: Partial<FarmerProfile> = {
+          state: 'Karnataka',
+          district: updatedProfile.district || 'Dharwad',
+          farmerCategory: (updatedProfile.landHoldingAcres || 2.5) <= 5 ? 'small_marginal' : 'large',
+          socialCategory:
+            updatedProfile.category === 'SC'
+              ? 'SC'
+              : updatedProfile.category === 'ST'
+              ? 'ST'
+              : updatedProfile.category === 'OBC'
+              ? 'OBC'
+              : 'GEN',
+          landHoldingAcres: updatedProfile.landHoldingAcres || 2.5,
+          hasLandOwnership: updatedProfile.hasLandOwnership ?? true,
+          age: typeof updatedProfile.age === 'number' ? updatedProfile.age : 35,
+          cropsGrown: updatedProfile.cropsGrown || [updatedProfile.cropType || 'Paddy'],
+          hasWaterSource: updatedProfile.hasWaterSource ?? true,
+          hasExistingBorewell: updatedProfile.hasExistingBorewell ?? false,
+          hasFruitsId: updatedProfile.hasFruitsId ?? true,
+          hasRtcOrPahani: true,
+          hasAadhaarBankLinked: updatedProfile.hasAadhaarBankLinked ?? true,
+          isCooperativeMember: true,
+          hasChildrenInHigherEducation: false,
+          notifiedCropInHobli: true,
+          hasCasteIncomeCertificate: true,
+          hasSowingCertificate: true,
+          isInstitutionalLandholder: false,
+          isConstitutionalPostHolder: false,
+          isGovernmentEmployee: false,
+          isIncomeTaxPayee: false,
+          isEnrolledInEsiOrCghs: false
+        };
+
+        const evaluationResults = RulesEngine.evaluateAllSchemes(VERIFIED_SCHEMES, farmerProfile);
+        const eligibleCount = evaluationResults.filter((r) => r.status === 'ELIGIBLE' || r.status === 'LIKELY_ELIGIBLE').length;
+
+        const completionReply = isKn
+          ? `ಧನ್ಯವಾದಗಳು ${updatedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ವಿವರಗಳು ಯಶಸ್ವಿಯಾಗಿ ದೃಢೀಕರಿಸಲ್ಪಟ್ಟಿವೆ. ನಿಮ್ಮ ಅರ್ಹತೆಗೆ ತಕ್ಕಂತೆ ${eligibleCount} ಅಧಿಕೃತ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ.`
+          : `Thank you ${updatedProfile.fullName || 'Farmer'}! Your details have been confirmed. Based on your verified profile, you qualify for ${eligibleCount} verified government schemes.`;
+
+        return res.json({
+          reply: completionReply,
+          nextStep: null,
+          isComplete: true,
+          updatedProfile,
+          evaluatedSchemes: evaluationResults
+        });
+      } else if (isDeclined) {
+        // Offer specific fields to change
+        const editPrompt = isKn
+          ? "ಯಾವ ಮಾಹಿತಿಯನ್ನು ಬದಲಾಯಿಸಲು ಬಯಸುತ್ತೀರಿ? ಕೆಳಗಿನ ಆಯ್ಕೆಯನ್ನು ಆರಿಸಿ, ಅಥವಾ ಸಂಪೂರ್ಣವಾಗಿ ಬದಲಾಯಿಸಲು ಫಾರ್ಮ್ ಮೋಡ್‌ಗೆ ಹೋಗಿ."
+          : "Which detail would you like to update? Choose an option below, or switch to Form Mode to edit all fields at once.";
+
+        const editOptions = isKn
+          ? [
+              { label: "ಹೆಸರು ಬದಲಾಯಿಸಿ", value: "EDIT_NAME" },
+              { label: "ಜಮೀನಿನ ವಿಸ್ತೀರ್ಣ ಬದಲಾಯಿಸಿ", value: "EDIT_LAND" },
+              { label: "ಜಿಲ್ಲೆ ಬದಲಾಯಿಸಿ", value: "EDIT_DISTRICT" },
+              { label: "ಬೆಳೆ ಬದಲಾಯಿಸಿ", value: "EDIT_CROP" },
+              { label: "ಫಾರ್ಮ್ ಮೋಡ್‌ನಲ್ಲಿ ಪರಿಶೀಲಿಸಿ", value: "CONFIRM_EDIT_FORM" }
+            ]
+          : [
+              { label: "Change Name", value: "EDIT_NAME" },
+              { label: "Change Land Size", value: "EDIT_LAND" },
+              { label: "Change District", value: "EDIT_DISTRICT" },
+              { label: "Change Crops", value: "EDIT_CROP" },
+              { label: "Review All in Form Mode", value: "CONFIRM_EDIT_FORM" }
+            ];
+
+        return res.json({
+          reply: editPrompt,
+          nextStep: 'confirm_edit',
+          options: editOptions,
+          updatedProfile,
+          isComplete: false
+        });
+      }
+    }
+
+    // Handle redirection from confirm_edit
+    if (step === 'confirm_edit' || rawInput.startsWith('EDIT_')) {
+      let targetStep = 'name';
+      if (rawInput === 'EDIT_LAND' || /land|ಭೂಮಿ/i.test(rawInput)) targetStep = 'landHolding';
+      else if (rawInput === 'EDIT_DISTRICT' || /district|ಸ್ಥಳ|ಜಿಲ್ಲೆ/i.test(rawInput)) targetStep = 'district';
+      else if (rawInput === 'EDIT_CROP' || /crop|ಬೆಳೆ/i.test(rawInput)) targetStep = 'cropType';
+      else if (rawInput === 'EDIT_NAME' || /name|ಹೆಸರು/i.test(rawInput)) targetStep = 'name';
+
+      const targetConfig = CHAT_FLOW_CONFIG[targetStep][langKey];
+      return res.json({
+        reply: targetConfig.question,
+        nextStep: targetStep,
+        options: targetConfig.options || [],
+        updatedProfile,
+        isComplete: false
+      });
+    }
+
+    // Step-by-Step Input Validation
+    let validationError: string | null = null;
+
+    if (step === 'name') {
+      const extracted = rawInput.replace(/^(my name is|i am|nan hesaru|nanu)\s+/i, '').trim();
+      const hasLetters = /[a-zA-Z\u0C80-\u0CFF]/.test(extracted);
+      if (isUnknownOrEvasiveInput(rawInput) || !hasLetters || extracted.length < 2) {
+        validationError = isKn
+          ? "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಮತ್ತು FRUITS ನೋಂದಣಿಗೆ ರೈತರ ಅಧಿಕೃತ ಹೆಸರು ಅಗತ್ಯವಿದೆ. 'ಗೊತ್ತಿಲ್ಲ' ಅಥವಾ ಅಮಾನ್ಯ ಹೆಸರುಗಳನ್ನು ಸ್ವೀಕರಿಸಲಾಗುವುದಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರನ್ನು ತಿಳಿಸಿ (ಉದಾ: ರಮೇಶ್ ಗೌಡ ಅಥವಾ ಲಕ್ಷ್ಮಿ ದೇವಿ), ಅಥವಾ ಕೆಳಗಿನ ಆಯ್ಕೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಆರಿಸಿ."
+          : "A valid farmer name is required by government scheme registries (e.g. FRUITS, RTC records). Answers like 'I don't know' or random letters cannot be accepted. Please state your full name (for example, 'Ramesh Gowda' or 'Lakshmi Devi'), or select one of the suggested names below.";
+      } else {
+        updatedProfile.fullName = extracted;
+      }
     } else if (step === 'age') {
-      const match = cleanInput.match(/\b\d{2}\b/);
-      updatedProfile.age = match ? parseInt(match[0], 10) : parseInt(cleanInput, 10) || 35;
+      const match = rawInput.match(/\b\d{1,3}\b/);
+      const parsedAge = match ? parseInt(match[0], 10) : parseInt(rawInput, 10);
+      if (isUnknownOrEvasiveInput(rawInput) || isNaN(parsedAge) || parsedAge < 18 || parsedAge > 105) {
+        validationError = isKn
+          ? "ಪಿಎಂ ಕಿಸಾನ್, ಕಿಸಾನ್ ಮಾನ್‌ಧನ್ ಪಿಂಚಣಿ (18-40 ವರ್ಷ) ಮತ್ತು ಯುವ ಕೃಷಿ ಯೋಜನೆಗಳಿಗೆ 18 ರಿಂದ 100 ವರ್ಷದ ನಡುವಿನ ಮಾನ್ಯ ವಯಸ್ಸು ಅಗತ್ಯವಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ವಯಸ್ಸನ್ನು ನಮೂದಿಸಿ (ಉದಾ: 35) ಅಥವಾ ಕೆಳಗಿನ ಆಯ್ಕೆಗಳಲ್ಲಿ ಒಂದನ್ನು ಕ್ಲಿಕ್ ಮಾಡಿ."
+          : "A valid age between 18 and 100 is required because central and state schemes (like PM-KISAN, PM-KMY pension 18-40 yrs, and senior welfare) depend on age. Please enter your age (e.g., 35) or pick one of the options below.";
+      } else {
+        updatedProfile.age = parsedAge;
+      }
     } else if (step === 'gender') {
-      updatedProfile.gender = /female|woman|stree|mahila|ಮಹಿಳೆ/i.test(cleanInput) ? 'Female' : 'Male';
+      if (isUnknownOrEvasiveInput(rawInput)) {
+        validationError = isKn
+          ? "ಮಹಿಳಾ ರೈತರಿಗೆ ಕೃಷಿ ಯಂತ್ರೋಪಕರಣ ಮತ್ತು ಹನಿ ನೀರಾವರಿಯಲ್ಲಿ ವಿಶೇಷ ಹೆಚ್ಚುವರಿ ಸಬ್ಸಿಡಿ ಲಭ್ಯವಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಲಿಂಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ (ಪುರುಷ, ಮಹಿಳೆ ಅಥವಾ ಇತರ)."
+          : "Gender is needed because women farmers receive special bonus subsidies under PMKSY micro-irrigation and machinery schemes. Please select Male, Female, or Other from the options below.";
+      } else if (/female|woman|stree|mahila|ಮಹಿಳೆ|ಹೆಣ್ಣು/i.test(rawInput)) {
+        updatedProfile.gender = 'Female';
+      } else if (/other|trans|ಇತರ/i.test(rawInput)) {
+        updatedProfile.gender = 'Other';
+      } else if (/male|man|purusha|ಪುರುಷ|ಗಂಡು/i.test(rawInput)) {
+        updatedProfile.gender = 'Male';
+      } else {
+        validationError = isKn
+          ? "ದಯವಿಟ್ಟು ಮಾನ್ಯ ಲಿಂಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ (ಪುರುಷ, ಮಹಿಳೆ ಅಥವಾ ಇತರ). ಕೆಳಗಿನ ಬಟನ್‌ಗಳಲ್ಲಿ ಒಂದನ್ನು ಕ್ಲಿಕ್ ಮಾಡಿ."
+          : "Please specify a valid gender (Male, Female, or Other). You can tap one of the suggested buttons below.";
+      }
     } else if (step === 'category') {
-      if (/sc|scheduled caste|ಪರಿಶಿಷ್ಟ ಜಾತಿ/i.test(cleanInput)) updatedProfile.category = 'SC';
-      else if (/st|scheduled tribe|ಪರಿಶಿಷ್ಟ ಪಂಗಡ/i.test(cleanInput)) updatedProfile.category = 'ST';
-      else if (/obc|ಹಿಂದುಳಿದ/i.test(cleanInput)) updatedProfile.category = 'OBC';
-      else updatedProfile.category = 'General';
+      if (isUnknownOrEvasiveInput(rawInput)) {
+        validationError = isKn
+          ? "ಗಂಗಾ ಕಲ್ಯಾಣ ಮತ್ತು ಇತರ ಕೃಷಿ ಯೋಜನೆಗಳಲ್ಲಿ SC/ST ರೈತರಿಗೆ 90% ರಿಂದ 100% ಹಾಗೂ OBC ರೈತರಿಗೆ ವಿಶೇಷ ಸಬ್ಸಿಡಿ ಲಭ್ಯವಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಸಾಮಾಜಿಕ ವರ್ಗವನ್ನು ಕೆಳಗೆ ಆರಿಸಿ."
+          : "Social reservation category is required to determine your subsidy rate (e.g., 90% to 100% subsidy for SC/ST under Ganga Kalyana, compared to standard General rates). Please select General, OBC, SC, or ST below.";
+      } else if (/sc|scheduled caste|ಪರಿಶಿಷ್ಟ ಜಾತಿ/i.test(rawInput)) {
+        updatedProfile.category = 'SC';
+      } else if (/st|scheduled tribe|ಪರಿಶಿಷ್ಟ ಪಂಗಡ/i.test(rawInput)) {
+        updatedProfile.category = 'ST';
+      } else if (/obc|ಹಿಂದುಳಿದ|2a|2b|3a|3b/i.test(rawInput)) {
+        updatedProfile.category = 'OBC';
+      } else if (/gen|general|ಸಾಮಾನ್ಯ/i.test(rawInput)) {
+        updatedProfile.category = 'General';
+      } else {
+        validationError = isKn
+          ? "ದಯವಿಟ್ಟು ಮಾನ್ಯ ಸಾಮಾಜಿಕ ವರ್ಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ: ಸಾಮಾನ್ಯ, OBC, SC, ಅಥವಾ ST."
+          : "Please select a recognized category: General, OBC, SC, or ST from the options below.";
+      }
     } else if (step === 'district') {
-      updatedProfile.district = cleanInput || 'Dharwad';
-      updatedProfile.state = 'Karnataka';
+      const hasLetters = /[a-zA-Z\u0C80-\u0CFF]/.test(rawInput);
+      if (isUnknownOrEvasiveInput(rawInput) || !hasLetters || rawInput.length < 3) {
+        validationError = isKn
+          ? "ಕರ್ನಾಟಕದ ಕೃಷಿ ಯೋಜನೆಗಳು (ಕೃಷಿ ಭಾಗ್ಯ, ಬರ ಪರಿಹಾರ ಮತ್ತು ರೈತ ಸಂಪರ್ಕ ಕೇಂದ್ರಗಳು) ಜಿಲ್ಲಾವಾರು ಜಾರಿಯಾಗುತ್ತವೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಕೃಷಿ ಭೂಮಿ ಇರುವ ಜಿಲ್ಲೆಯನ್ನು ತಿಳಿಸಿ (ಉದಾ: ಧಾರವಾಡ, ಮಂಡ್ಯ, ಬೆಳಗಾವಿ) ಅಥವಾ ಕೆಳಗೆ ಆಯ್ಕೆಮಾಡಿ."
+          : "A valid Karnataka district is required because agricultural schemes (like Krishi Bhagya, drought compensation, and Raitha Samparka Kendras) are administered by district. Please name your district (e.g. Dharwad, Mandya, Belagavi) or click an option below.";
+      } else {
+        updatedProfile.district = rawInput;
+        updatedProfile.state = 'Karnataka';
+      }
     } else if (step === 'landHolding') {
-      const match = cleanInput.match(/[\d.]+/);
-      const acres = match ? parseFloat(match[0]) : 2.5;
-      updatedProfile.landHolding = String(acres);
-      updatedProfile.landHoldingAcres = acres;
-      updatedProfile.hasLandOwnership = acres > 0;
-      updatedProfile.farmerCategory = acres <= 2.5 ? 'marginal' : acres <= 5 ? 'small' : 'medium';
+      const match = rawInput.match(/[\d.]+/);
+      const parsedAcres = match ? parseFloat(match[0]) : NaN;
+      if (isUnknownOrEvasiveInput(rawInput) || isNaN(parsedAcres) || parsedAcres < 0 || parsedAcres > 500) {
+        validationError = isKn
+          ? "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಭೂಮಿಯ ವಿಸ್ತೀರ್ಣದ ಆಧಾರದ ಮೇಲೆ ಅತಿ ಸಣ್ಣ (<2.5 ಎಕರೆ), ಸಣ್ಣ (2.5-5 ಎಕರೆ) ರೈತರನ್ನು ಗುರುತಿಸುತ್ತವೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಕೃಷಿ ಭೂಮಿಯ ಎಕರೆಗಳನ್ನು ತಿಳಿಸಿ (ಉದಾ: 2.5 ಅಥವಾ 4) ಅಥವಾ ಕೆಳಗಿನ ಆಯ್ಕೆ ಆರಿಸಿ."
+          : "Government schemes categorize farmers by land holding (Marginal <2.5 acres, Small 2.5-5 acres). Please provide a valid land size in acres (e.g., 2.5, 4.0) or pick one of the options below.";
+      } else {
+        updatedProfile.landHolding = String(parsedAcres);
+        updatedProfile.landHoldingAcres = parsedAcres;
+        updatedProfile.hasLandOwnership = parsedAcres > 0;
+        updatedProfile.farmerCategory = parsedAcres <= 2.5 ? 'marginal' : parsedAcres <= 5 ? 'small' : 'medium';
+      }
     } else if (step === 'cropType') {
-      updatedProfile.cropType = cleanInput || 'Paddy';
-      updatedProfile.cropsGrown = [updatedProfile.cropType];
+      const hasLetters = /[a-zA-Z\u0C80-\u0CFF]/.test(rawInput);
+      if (isUnknownOrEvasiveInput(rawInput) || !hasLetters || rawInput.length < 2) {
+        validationError = isKn
+          ? "ಬೆಳೆಯ ಮಾಹಿತಿ ಮುಖ್ಯವಾಗಿದೆ: ಸಿರಿಧಾನ್ಯಗಳಿಗೆ 'ರೈತ ಸಿರಿ' ಅಡಿಯಲ್ಲಿ ₹10,000/ಹೆಕ್ಟೇರ್ ಪ್ರೋತ್ಸಾಹಧನ, ಭತ್ತಕ್ಕೆ ಬೆಳೆ ವಿಮೆ ಮತ್ತು ಬೆಂಬಲ ಬೆಲೆ ಲಭ್ಯವಿದೆ. ದಯವಿಟ್ಟು ನೀವು ಬೆಳೆಯುವ ಬೆಳೆಯ ಹೆಸರನ್ನು ತಿಳಿಸಿ ಅಥವಾ ಆಯ್ಕೆಮಾಡಿ."
+          : "Crop information is required because specific schemes provide dedicated benefits (e.g., ₹10,000/ha for Millets under Raitha Siri, MSP & PMFBY insurance for Paddy). Please enter or choose your crop below.";
+      } else {
+        updatedProfile.cropType = rawInput;
+        updatedProfile.cropsGrown = [rawInput];
+      }
     } else if (step === 'irrigation') {
-      updatedProfile.irrigationType = cleanInput || 'Rainfed';
-      updatedProfile.hasWaterSource = !/rainfed|ಮಳೆ/i.test(cleanInput);
-      updatedProfile.hasExistingBorewell = /borewell|ಬೋರ್‌ವೆಲ್/i.test(cleanInput);
+      if (isUnknownOrEvasiveInput(rawInput)) {
+        validationError = isKn
+          ? "ನೀರಾವರಿ ಸೌಲಭ್ಯವು PMKSY ಹನಿ ನೀರಾವರಿ, ಕೃಷಿ ಭಾಗ್ಯ ಕೃಷಿ ಹೊಂಡ ಮತ್ತು ಕುಸುಮ್ ಸೌರ ಪಂಪ್ ಅರ್ಹತೆಯನ್ನು ನಿರ್ಧರಿಸುತ್ತದೆ. ದಯವಿಟ್ಟು ಮಳೆ ಆಶ್ರಿತ, ಬೋರ್‌ವೆಲ್ ಅಥವಾ ಕಾಲುವೆ ಆಯ್ಕೆಮಾಡಿ."
+          : "Irrigation type determines eligibility for PMKSY drip irrigation, Krishi Bhagya farm ponds, and PM-KUSUM solar pumps. Please select Rainfed, Borewell, or Canal from the choices below.";
+      } else {
+        updatedProfile.irrigationType = rawInput;
+        updatedProfile.hasWaterSource = !/rainfed|ಮಳೆ/i.test(rawInput);
+        updatedProfile.hasExistingBorewell = /borewell|ಬೋರ್‌ವೆಲ್/i.test(rawInput);
+      }
     } else if (step === 'fruitsId') {
-      updatedProfile.fruitsRegistered = /true|yes|ಹೌದು/i.test(cleanInput);
-      updatedProfile.hasFruitsId = updatedProfile.fruitsRegistered;
+      if (isUnknownOrEvasiveInput(rawInput)) {
+        validationError = isKn
+          ? "ಕರ್ನಾಟಕ ಸರ್ಕಾರದ ಸಬ್ಸಿಡಿಗಳನ್ನು ನೇರವಾಗಿ ಪಡೆಯಲು FRUITS ID ಅಗತ್ಯ. ನಿಮಗೆ FRUITS ID ಇದೆಯೇ ಎಂದು ದಯವಿಟ್ಟು ತಿಳಿಸಿ (ಹೌದು ಅಥವಾ ಇಲ್ಲ/ಖಚಿತವಿಲ್ಲ ಆಯ್ಕೆಮಾಡಿ)."
+          : "Karnataka FRUITS registration is needed for seamless subsidy transfer. Please indicate if you have a FRUITS ID or select 'No / Not yet registered' below.";
+      } else {
+        updatedProfile.fruitsRegistered = /true|yes|ಹೌದು/i.test(rawInput);
+        updatedProfile.hasFruitsId = updatedProfile.fruitsRegistered;
+      }
     } else if (step === 'aadhaar') {
-      updatedProfile.aadhaarLinked = /true|yes|ಹೌದು/i.test(cleanInput);
-      updatedProfile.hasAadhaarBankLinked = updatedProfile.aadhaarLinked;
+      if (isUnknownOrEvasiveInput(rawInput)) {
+        validationError = isKn
+          ? "ನೇರ ನಗದು ವರ್ಗಾವಣೆ (DBT) ಮೂಲಕ ಸಹಾಯಧನ ಬ್ಯಾಂಕ್ ಖಾತೆಗೆ ಬರಲು ಆಧಾರ್ ಬ್ಯಾಂಕ್ ಲಿಂಕ್ ಅಗತ್ಯ. ದಯವಿಟ್ಟು ಲಿಂಕ್ ಆಗಿದೆಯೇ ಎಂದು ಆಯ್ಕೆಮಾಡಿ."
+          : "Aadhaar bank-linking and DBT seeding are required for direct benefit deposits. Please confirm if your account is linked or select 'Not sure / Not Linked'.";
+      } else {
+        updatedProfile.aadhaarLinked = /true|yes|ಹೌದು/i.test(rawInput);
+        updatedProfile.hasAadhaarBankLinked = updatedProfile.aadhaarLinked;
+      }
+    }
+
+    // If validation failed, reject and re-prompt on the SAME step
+    if (validationError) {
+      const currentConfig = CHAT_FLOW_CONFIG[step]?.[langKey];
+      return res.json({
+        reply: validationError,
+        nextStep: step,
+        options: currentConfig?.options || [],
+        updatedProfile,
+        isComplete: false
+      });
     }
 
     const currentConfig = CHAT_FLOW_CONFIG[step];
     const nextStep = currentConfig?.next || null;
 
     if (!nextStep) {
-      // Completed all questions -> Evaluate Schemes using RulesEngine!
-      const farmerProfile: Partial<FarmerProfile> = {
-        state: 'Karnataka',
-        district: updatedProfile.district || 'Dharwad',
-        farmerCategory: (updatedProfile.landHoldingAcres || 2.5) <= 5 ? 'small_marginal' : 'large',
-        socialCategory:
-          updatedProfile.category === 'SC'
-            ? 'SC'
-            : updatedProfile.category === 'ST'
-            ? 'ST'
-            : 'GEN',
-        landHoldingAcres: updatedProfile.landHoldingAcres || 2.5,
-        hasLandOwnership: updatedProfile.hasLandOwnership ?? true,
-        age: typeof updatedProfile.age === 'number' ? updatedProfile.age : 35,
-        cropsGrown: updatedProfile.cropsGrown || ['Paddy'],
-        hasWaterSource: updatedProfile.hasWaterSource ?? true,
-        hasExistingBorewell: updatedProfile.hasExistingBorewell ?? false,
-        hasFruitsId: updatedProfile.hasFruitsId ?? true,
-        hasRtcOrPahani: true,
-        hasAadhaarBankLinked: updatedProfile.hasAadhaarBankLinked ?? true,
-        isCooperativeMember: true,
-        hasChildrenInHigherEducation: false,
-        notifiedCropInHobli: true,
-        hasCasteIncomeCertificate: true,
-        hasSowingCertificate: true,
-        isInstitutionalLandholder: false,
-        isConstitutionalPostHolder: false,
-        isGovernmentEmployee: false,
-        isIncomeTaxPayee: false,
-        isEnrolledInEsiOrCghs: false
-      };
-
-      const evaluationResults = RulesEngine.evaluateAllSchemes(VERIFIED_SCHEMES, farmerProfile);
-      const eligibleCount = evaluationResults.filter((r) => r.status === 'ELIGIBLE' || r.status === 'LIKELY_ELIGIBLE').length;
-
-      const completionReply = isKn
-        ? `ಧನ್ಯವಾದಗಳು ${updatedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಅರ್ಹತೆಗೆ ತಕ್ಕಂತೆ ${eligibleCount} ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ.`
-        : `Thank you ${updatedProfile.fullName || 'Farmer'}! Your details have been evaluated. Based on your profile, you are eligible for ${eligibleCount} verified government schemes.`;
-
+      // Completed - should not be reached directly unless confirmed
       return res.json({
-        reply: completionReply,
+        reply: isKn ? "ಧನ್ಯವಾದಗಳು!" : "Thank you!",
         nextStep: null,
         isComplete: true,
-        updatedProfile,
-        evaluatedSchemes: evaluationResults
+        updatedProfile
       });
     }
 
     const nextConfig = CHAT_FLOW_CONFIG[nextStep];
     const nextContent = nextConfig[langKey];
 
+    // If nextStep is 'confirm', present the summary card text
+    let replyText = nextContent.question;
+    if (nextStep === 'confirm') {
+      replyText = formatProfileSummary(updatedProfile, isKn);
+    }
+
     return res.json({
-      reply: nextContent.question,
+      reply: replyText,
       nextStep,
       options: nextContent.options || [],
       updatedProfile,
