@@ -1577,6 +1577,56 @@ function formatProfileSummary(profile: any, isKn: boolean): string {
   );
 }
 
+function buildFarmerEvaluationResponse(updatedProfile: any, isKn: boolean) {
+  const farmerProfile: Partial<FarmerProfile> = {
+    state: 'Karnataka',
+    district: updatedProfile.district || 'Dharwad',
+    farmerCategory: (updatedProfile.landHoldingAcres || parseFloat(updatedProfile.landHolding) || 2.5) <= 5 ? 'small_marginal' : 'large',
+    socialCategory:
+      updatedProfile.category === 'SC'
+        ? 'SC'
+        : updatedProfile.category === 'ST'
+        ? 'ST'
+        : updatedProfile.category === 'OBC'
+        ? 'OBC'
+        : 'GEN',
+    landHoldingAcres: updatedProfile.landHoldingAcres || parseFloat(updatedProfile.landHolding) || 2.5,
+    hasLandOwnership: updatedProfile.hasLandOwnership ?? true,
+    age: typeof updatedProfile.age === 'number' ? updatedProfile.age : (parseInt(updatedProfile.age, 10) || 35),
+    cropsGrown: updatedProfile.cropsGrown || [updatedProfile.cropType || 'Paddy'],
+    hasWaterSource: updatedProfile.hasWaterSource ?? true,
+    hasExistingBorewell: updatedProfile.hasExistingBorewell ?? false,
+    hasFruitsId: updatedProfile.hasFruitsId ?? true,
+    hasRtcOrPahani: true,
+    hasAadhaarBankLinked: updatedProfile.hasAadhaarBankLinked ?? true,
+    isCooperativeMember: true,
+    hasChildrenInHigherEducation: false,
+    notifiedCropInHobli: true,
+    hasCasteIncomeCertificate: true,
+    hasSowingCertificate: true,
+    isInstitutionalLandholder: false,
+    isConstitutionalPostHolder: false,
+    isGovernmentEmployee: false,
+    isIncomeTaxPayee: false,
+    isEnrolledInEsiOrCghs: false
+  };
+
+  const evaluationResults = RulesEngine.evaluateAllSchemes(VERIFIED_SCHEMES, farmerProfile);
+  const eligibleCount = evaluationResults.filter((r) => r.status === 'ELIGIBLE' || r.status === 'LIKELY_ELIGIBLE').length;
+
+  const completionReply = isKn
+    ? `ಧನ್ಯವಾದಗಳು ${updatedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ವಿವರಗಳು ಯಶಸ್ವಿಯಾಗಿ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿವೆ. ನಿಮ್ಮ ಅರ್ಹತೆಗೆ ತಕ್ಕಂತೆ ${eligibleCount} ಅಧಿಕೃತ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ.`
+    : `Thank you ${updatedProfile.fullName || 'Farmer'}! Your details have been evaluated. Based on your verified profile, you qualify for ${eligibleCount} verified government schemes.`;
+
+  return {
+    reply: completionReply,
+    nextStep: null,
+    isComplete: true,
+    updatedProfile,
+    evaluatedSchemes: evaluationResults
+  };
+}
+
 app.post('/api/eligibility-chat', async (req, res) => {
   try {
     const { message, step = 'name', language = 'en', collectedProfile = {} } = req.body;
@@ -1585,6 +1635,15 @@ app.post('/api/eligibility-chat', async (req, res) => {
 
     const updatedProfile = { ...collectedProfile };
     const rawInput = (message || '').trim();
+
+    // Direct "Evaluate Now" trigger (from quick button, chip, or speech command)
+    const isEvaluateCommand =
+      rawInput === 'EVALUATE_NOW' ||
+      /^(evaluate|check\s+schemes?|show\s+schemes?|evaluate\s+now|check\s+eligibility|results?|ಪರಿಶೀಲಿಸಿ|ಯೋಜನೆಗಳನ್ನು\s+ತೋರಿಸಿ|ಈಗಲೇ\s+ಪರಿಶೀಲಿಸಿ)$/i.test(rawInput);
+
+    if (isEvaluateCommand) {
+      return res.json(buildFarmerEvaluationResponse(updatedProfile, isKn));
+    }
 
     // Handle Confirmation Step
     if (step === 'confirm') {
@@ -1598,54 +1657,7 @@ app.post('/api/eligibility-chat', async (req, res) => {
         /^(no|nope|wrong|change|modify|edit|tappu|illa|ಇಲ್ಲ|ತಪ್ಪು|ಬದಲಾವಣೆ)$/i.test(lower);
 
       if (isConfirmed) {
-        // Complete and evaluate schemes
-        const farmerProfile: Partial<FarmerProfile> = {
-          state: 'Karnataka',
-          district: updatedProfile.district || 'Dharwad',
-          farmerCategory: (updatedProfile.landHoldingAcres || 2.5) <= 5 ? 'small_marginal' : 'large',
-          socialCategory:
-            updatedProfile.category === 'SC'
-              ? 'SC'
-              : updatedProfile.category === 'ST'
-              ? 'ST'
-              : updatedProfile.category === 'OBC'
-              ? 'OBC'
-              : 'GEN',
-          landHoldingAcres: updatedProfile.landHoldingAcres || 2.5,
-          hasLandOwnership: updatedProfile.hasLandOwnership ?? true,
-          age: typeof updatedProfile.age === 'number' ? updatedProfile.age : 35,
-          cropsGrown: updatedProfile.cropsGrown || [updatedProfile.cropType || 'Paddy'],
-          hasWaterSource: updatedProfile.hasWaterSource ?? true,
-          hasExistingBorewell: updatedProfile.hasExistingBorewell ?? false,
-          hasFruitsId: updatedProfile.hasFruitsId ?? true,
-          hasRtcOrPahani: true,
-          hasAadhaarBankLinked: updatedProfile.hasAadhaarBankLinked ?? true,
-          isCooperativeMember: true,
-          hasChildrenInHigherEducation: false,
-          notifiedCropInHobli: true,
-          hasCasteIncomeCertificate: true,
-          hasSowingCertificate: true,
-          isInstitutionalLandholder: false,
-          isConstitutionalPostHolder: false,
-          isGovernmentEmployee: false,
-          isIncomeTaxPayee: false,
-          isEnrolledInEsiOrCghs: false
-        };
-
-        const evaluationResults = RulesEngine.evaluateAllSchemes(VERIFIED_SCHEMES, farmerProfile);
-        const eligibleCount = evaluationResults.filter((r) => r.status === 'ELIGIBLE' || r.status === 'LIKELY_ELIGIBLE').length;
-
-        const completionReply = isKn
-          ? `ಧನ್ಯವಾದಗಳು ${updatedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ವಿವರಗಳು ಯಶಸ್ವಿಯಾಗಿ ದೃಢೀಕರಿಸಲ್ಪಟ್ಟಿವೆ. ನಿಮ್ಮ ಅರ್ಹತೆಗೆ ತಕ್ಕಂತೆ ${eligibleCount} ಅಧಿಕೃತ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ.`
-          : `Thank you ${updatedProfile.fullName || 'Farmer'}! Your details have been confirmed. Based on your verified profile, you qualify for ${eligibleCount} verified government schemes.`;
-
-        return res.json({
-          reply: completionReply,
-          nextStep: null,
-          isComplete: true,
-          updatedProfile,
-          evaluatedSchemes: evaluationResults
-        });
+        return res.json(buildFarmerEvaluationResponse(updatedProfile, isKn));
       } else if (isDeclined) {
         // Offer specific fields to change
         const editPrompt = isKn
@@ -1819,10 +1831,19 @@ app.post('/api/eligibility-chat', async (req, res) => {
     // If validation failed, reject and re-prompt on the SAME step
     if (validationError) {
       const currentConfig = CHAT_FLOW_CONFIG[step]?.[langKey];
+      const errorOptions = [...(currentConfig?.options || [])];
+      if (updatedProfile.district || updatedProfile.landHolding || updatedProfile.cropType || updatedProfile.fullName) {
+        if (!errorOptions.some((o: any) => o.value === 'EVALUATE_NOW')) {
+          errorOptions.push({
+            label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+            value: "EVALUATE_NOW"
+          });
+        }
+      }
       return res.json({
         reply: validationError,
         nextStep: step,
-        options: currentConfig?.options || [],
+        options: errorOptions,
         updatedProfile,
         isComplete: false
       });
@@ -1850,10 +1871,21 @@ app.post('/api/eligibility-chat', async (req, res) => {
       replyText = formatProfileSummary(updatedProfile, isKn);
     }
 
+    const returnedOptions = [...(nextContent.options || [])];
+    if (updatedProfile.district || updatedProfile.landHolding || updatedProfile.cropType) {
+      const alreadyHasEval = returnedOptions.some((o: any) => o.value === 'EVALUATE_NOW' || o.value === 'CONFIRM_YES');
+      if (!alreadyHasEval && nextStep !== 'confirm') {
+        returnedOptions.push({
+          label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+          value: "EVALUATE_NOW"
+        });
+      }
+    }
+
     return res.json({
       reply: replyText,
       nextStep,
-      options: nextContent.options || [],
+      options: returnedOptions,
       updatedProfile,
       isComplete: false
     });

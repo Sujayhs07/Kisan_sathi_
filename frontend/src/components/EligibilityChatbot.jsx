@@ -210,7 +210,7 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
     stopSpeaking();
     setActiveSpeakingMsgId(null);
     spokenMessageIdsRef.current.clear();
-    const initial = getInitialChatMessage(language, wizardData.fullName);
+    const initial = getInitialChatMessage(language, wizardData.fullName, wizardData);
     const initialMsg = {
       id: 'msg_0',
       role: 'assistant',
@@ -233,7 +233,7 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
     stopSpeaking();
     setActiveSpeakingMsgId(null);
     spokenMessageIdsRef.current.clear();
-    const initial = getInitialChatMessage(language, wizardData.fullName);
+    const initial = getInitialChatMessage(language, wizardData.fullName, wizardData);
     setMessages([{
       id: 'msg_' + Date.now(),
       role: 'assistant',
@@ -246,6 +246,42 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
     setPlaceholder(initial.placeholder || '');
     setIsComplete(false);
     setProgress(15);
+  };
+
+  // Immediate Evaluation Action
+  const handleEvaluateNow = async () => {
+    stopSpeaking();
+    setActiveSpeakingMsgId(null);
+    setIsWaitingResponse(true);
+
+    const mergedProfile = { ...wizardData };
+    try {
+      const schemes = await evaluateEligibility(mergedProfile);
+      const schemeList = Array.isArray(schemes) ? schemes : (schemes?.schemes || []);
+      const eligibleCount = schemeList.filter(s => s.status === 'ELIGIBLE' || s.status === 'LIKELY_ELIGIBLE').length;
+
+      const evalText = language === 'kn'
+        ? `ಧನ್ಯವಾದಗಳು ${mergedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ಕೃಷಿ ವಿವರಗಳನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಪರಿಶೀಲಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಅರ್ಹತೆಗೆ ತಕ್ಕಂತೆ ${eligibleCount > 0 ? eligibleCount : 'ಪ್ರಮುಖ'} ಅಧಿಕೃತ ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ! ಕೆಳಗಿನ ಬಟನ್ ಕ್ಲಿಕ್ ಮಾಡಿ ಫಲಿತಾಂಶಗಳನ್ನು ವೀಕ್ಷಿಸಿ.`
+        : `Thank you ${mergedProfile.fullName || 'Farmer'}! Your farm profile has been evaluated. You qualify for ${eligibleCount > 0 ? eligibleCount : 'high-impact'} government schemes! Click below to view your full results.`;
+
+      const assistantMsg = {
+        id: 'ast_' + Date.now(),
+        role: 'assistant',
+        text: evalText,
+        step: 'complete',
+        isComplete: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setMessages(prev => [...prev, assistantMsg]);
+      setIsComplete(true);
+      setProgress(100);
+      setActiveOptions([]);
+    } catch (err) {
+      console.error('Error during evaluate now:', err);
+    } finally {
+      setIsWaitingResponse(false);
+    }
   };
 
   // Submit a message (either typed by user or clicked via quick option chip)
@@ -261,6 +297,17 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
         onSwitchToForm();
         return;
       }
+    }
+
+    // Direct Evaluate trigger from text or button
+    const isEvalQuery =
+      customValue === 'EVALUATE_NOW' ||
+      textToSend === 'EVALUATE_NOW' ||
+      /^(evaluate|check\s+schemes?|show\s+schemes?|evaluate\s+now|check\s+eligibility|results?|ಪರಿಶೀಲಿಸಿ|ಯೋಜನೆಗಳನ್ನು\s+ತೋರಿಸಿ|ಈಗಲೇ\s+ಪರಿಶೀಲಿಸಿ)$/i.test(trimmed);
+
+    if (isEvalQuery) {
+      await handleEvaluateNow();
+      return;
     }
 
     const displayMsg = trimmed || (typeof customValue === 'object' ? JSON.stringify(customValue) : String(customValue));
@@ -493,60 +540,98 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
       </div>
 
       {/* 3. Live Profile Attributes Drawer (Collapsible) */}
-      <div className="bg-amber-50/70 border-b border-amber-200/70 px-4 py-2.5 text-xs text-stone-700 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 font-semibold text-stone-800">
-          <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          <span>{language === 'kn' ? 'ಗುರುತಿಸಲಾದ ಕೃಷಿ ವಿವರಗಳು:' : 'Captured Profile Details:'}</span>
+      <div className="bg-amber-50/70 border-b border-amber-200/70 px-3 sm:px-4 py-2.5 text-xs text-stone-700">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-semibold text-stone-800">
+            <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>{language === 'kn' ? 'ಗುರುತಿಸಲಾದ ಕೃಷಿ ವಿವರಗಳು:' : 'Captured Profile Details:'}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isComplete && (
+              <button
+                type="button"
+                onClick={handleEvaluateNow}
+                disabled={isWaitingResponse}
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] sm:text-xs shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 border border-emerald-600"
+                title={language === 'kn' ? 'ಈ ವಿವರಗಳೊಂದಿಗೆ ತಕ್ಷಣ ಯೋಜನೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ' : 'Evaluate schemes now with captured profile'}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>{language === 'kn' ? '⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ' : '⚡ Evaluate Schemes'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowProfileDrawer(!showProfileDrawer)}
+              className="text-stone-500 hover:text-stone-800 flex items-center gap-1 text-[11px] font-medium"
+            >
+              {showProfileDrawer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <span>{showProfileDrawer ? 'Hide Details' : 'Show Details'}</span>
+            </button>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowProfileDrawer(!showProfileDrawer)}
-          className="text-stone-500 hover:text-stone-800 flex items-center gap-1 text-[11px] font-medium"
-        >
-          {showProfileDrawer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          <span>{showProfileDrawer ? 'Hide Details' : 'Show Details'}</span>
-        </button>
-
         {showProfileDrawer && (
-          <div className="w-full flex flex-wrap gap-2 pt-1 text-[11px]">
-            <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-              👤 <strong>{wizardData.fullName || 'Farmer'}</strong>
-            </span>
-            {wizardData.age && (
+          <div className="w-full pt-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[11px]">
               <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                🎂 Age: <strong>{wizardData.age} Yrs</strong>
+                👤 <strong>{wizardData.fullName || 'Farmer'}</strong>
               </span>
-            )}
-            {wizardData.gender && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                Gender: <strong>{wizardData.gender}</strong>
-              </span>
-            )}
-            {wizardData.category && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                Category: <strong>{wizardData.category}</strong>
-              </span>
-            )}
-            {wizardData.district && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                📍 <strong>{wizardData.district} ({wizardData.taluk})</strong>
-              </span>
-            )}
-            {wizardData.landType && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                🌱 <strong>{wizardData.landType}</strong>
-              </span>
-            )}
-            {wizardData.cropType && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                🌾 <strong>{wizardData.cropType}</strong>
-              </span>
-            )}
-            {wizardData.irrigationType && (
-              <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
-                💧 <strong>{wizardData.irrigationType}</strong>
-              </span>
+              {wizardData.age && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  🎂 Age: <strong>{wizardData.age} Yrs</strong>
+                </span>
+              )}
+              {wizardData.gender && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  Gender: <strong>{wizardData.gender}</strong>
+                </span>
+              )}
+              {wizardData.category && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  Category: <strong>{wizardData.category}</strong>
+                </span>
+              )}
+              {wizardData.district && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  📍 <strong>{wizardData.district} ({wizardData.taluk})</strong>
+                </span>
+              )}
+              {wizardData.landType && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  🌱 <strong>{wizardData.landType}</strong>
+                </span>
+              )}
+              {wizardData.cropType && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  🌾 <strong>{wizardData.cropType}</strong>
+                </span>
+              )}
+              {wizardData.irrigationType && (
+                <span className="px-2.5 py-1 rounded-lg bg-white border border-amber-200/80 font-medium">
+                  💧 <strong>{wizardData.irrigationType}</strong>
+                </span>
+              )}
+            </div>
+
+            {!isComplete && (
+              <div className="mt-2.5 pt-2 border-t border-amber-200/70 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] text-stone-600">
+                  {language === 'kn' 
+                    ? 'ಕೃಷಿ ವಿವರಗಳು ಈಗಾಗಲೇ ದಾಖಲಾಗಿವೆ. ತಕ್ಷಣವೇ ಎಲ್ಲಾ ಯೋಜನೆಗಳನ್ನು ಪರಿಶೀಲಿಸಲು ಬಟನ್ ಒತ್ತಿ:' 
+                    : 'Profile details already entered. Ready to check matching schemes?'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleEvaluateNow}
+                  disabled={isWaitingResponse}
+                  className="px-3.5 py-1.5 rounded-xl bg-forest-800 hover:bg-forest-900 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'kn' ? 'ಈಗಲೇ ಯೋಜನೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ ⚡' : 'Evaluate Matching Schemes ⚡'}</span>
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -674,11 +759,22 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
       </div>
 
       {/* 5. Contextual Quick Reply Suggestion Chips */}
-      {activeOptions && activeOptions.length > 0 && !isComplete && !isWaitingResponse && (
+      {((activeOptions && activeOptions.length > 0) || (wizardData.fullName || wizardData.district || wizardData.landType || wizardData.cropType)) && !isComplete && !isWaitingResponse && (
         <div className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white border-t border-stone-200/80">
-          <div className="text-[10px] sm:text-[11px] font-bold text-stone-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>{language === 'kn' ? 'ತ್ವರಿತ ಆಯ್ಕೆಗಳು (ಕ್ಲಿಕ್ ಮಾಡಿ):' : 'Suggested Answers (Tap to choose):'}</span>
+          <div className="text-[10px] sm:text-[11px] font-bold text-stone-600 uppercase tracking-wider mb-2 flex items-center justify-between gap-1">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span>{language === 'kn' ? 'ತ್ವರಿತ ಆಯ್ಕೆಗಳು (ಕ್ಲಿಕ್ ಮಾಡಿ):' : 'Suggested Answers (Tap to choose):'}</span>
+            </span>
+            {(wizardData.fullName || wizardData.district || wizardData.landType || wizardData.cropType) && (
+              <button
+                type="button"
+                onClick={handleEvaluateNow}
+                className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold underline flex items-center gap-1"
+              >
+                <span>{language === 'kn' ? '⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ' : '⚡ Evaluate Now'}</span>
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {activeOptions.map((opt, i) => (
@@ -686,7 +782,11 @@ export default function EligibilityChatbot({ onSwitchToForm }) {
                 key={i}
                 type="button"
                 onClick={() => handleSendMessage(opt.label, opt.value)}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-cream-50 hover:bg-forest-50 border border-stone-300 hover:border-forest-700 text-stone-800 hover:text-forest-900 text-xs font-semibold text-left transition-all active:scale-95 shadow-xs flex flex-col min-h-[38px] justify-center"
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border text-xs font-semibold text-left transition-all active:scale-95 shadow-xs flex flex-col min-h-[38px] justify-center ${
+                  opt.value === 'EVALUATE_NOW'
+                    ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-400 text-emerald-950 font-bold'
+                    : 'bg-cream-50 hover:bg-forest-50 border-stone-300 hover:border-forest-700 text-stone-800 hover:text-forest-900'
+                }`}
               >
                 <span>{opt.label}</span>
                 {opt.subtext && (

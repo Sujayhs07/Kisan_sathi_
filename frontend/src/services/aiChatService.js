@@ -424,6 +424,29 @@ function evaluateClientConversationStep({
   const updatedProfile = { ...collectedProfile };
   const rawInput = (userMessage || '').trim();
 
+  // 0. Direct "Evaluate Now" trigger (from quick button, chip, or speech command)
+  const isEvaluateCommand =
+    rawInput === 'EVALUATE_NOW' ||
+    /^(evaluate|check\s+schemes?|show\s+schemes?|evaluate\s+now|check\s+eligibility|results?|ಪರಿಶೀಲಿಸಿ|ಯೋಜನೆಗಳನ್ನು\s+ತೋರಿಸಿ|ಈಗಲೇ\s+ಪರಿಶೀಲಿಸಿ)$/i.test(rawInput);
+
+  if (isEvaluateCommand) {
+    const completionReply = isKn
+      ? `ಧನ್ಯವಾದಗಳು ${updatedProfile.fullName || 'ರೈತ ಬಾಂಧವರೇ'}! ನಿಮ್ಮ ವಿವರಗಳು ಯಶಸ್ವಿಯಾಗಿ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿವೆ. ನಿಮ್ಮ ಪ್ರೊಫೈಲ್‌ಗೆ ಸೂಕ್ತವಾದ ಯೋಜನೆಗಳ ಫಲಿತಾಂಶಗಳನ್ನು ಕೆಳಗೆ ನೀಡಲಾಗಿದೆ.`
+      : `Thank you ${updatedProfile.fullName || 'Farmer'}! Your farm profile has been evaluated against Central and Karnataka State schemes. View your qualified schemes below.`;
+
+    return {
+      success: true,
+      source: 'client_fallback',
+      reply: completionReply,
+      nextStep: 'complete',
+      options: [],
+      placeholder: '',
+      updatedProfile,
+      isComplete: true,
+      stepProgress: 100
+    };
+  }
+
   // 1. Handle confirmation step
   if (currentStep === 'confirm') {
     const lower = rawInput.toLowerCase();
@@ -688,16 +711,32 @@ function evaluateClientConversationStep({
       break;
   }
 
+  const hasCapturedDetails = Boolean(
+    updatedProfile.fullName ||
+    updatedProfile.district ||
+    updatedProfile.landHolding ||
+    updatedProfile.landType ||
+    updatedProfile.cropType
+  );
+
   // If validation failed, stay on the same step and re-prompt
   if (validationError) {
     const currentStepConfig = QUESTION_FLOW[currentStep]?.[language] || QUESTION_FLOW[currentStep]?.en;
     const currentIndex = STEP_SEQUENCE.indexOf(currentStep);
+    const returnedOptions = [...(currentStepConfig?.options || [])];
+    if (hasCapturedDetails && !returnedOptions.some(o => o.value === 'EVALUATE_NOW')) {
+      returnedOptions.push({
+        label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+        value: "EVALUATE_NOW",
+        subtext: isKn ? "ದಾಖಲಾದ ವಿವರಗಳೊಂದಿಗೆ" : "With captured details"
+      });
+    }
     return {
       success: true,
       source: 'client_fallback',
       reply: validationError,
       nextStep: currentStep,
-      options: currentStepConfig?.options || [],
+      options: returnedOptions,
       placeholder: currentStepConfig?.placeholder || '',
       updatedProfile,
       isComplete: false,
@@ -723,12 +762,23 @@ function evaluateClientConversationStep({
     replyText = replyText.replace('{name}', updatedProfile.fullName || (isKn ? 'ರೈತ ಮಿತ್ರ' : 'Farmer Friend'));
   }
 
+  const returnedOptions = [...(stepConfig?.options || [])];
+  if (hasCapturedDetails && nextStep !== 'complete' && nextStep !== 'confirm') {
+    if (!returnedOptions.some(o => o.value === 'EVALUATE_NOW')) {
+      returnedOptions.push({
+        label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+        value: "EVALUATE_NOW",
+        subtext: isKn ? "ದಾಖಲಾದ ವಿವರಗಳೊಂದಿಗೆ" : "With captured details"
+      });
+    }
+  }
+
   return {
     success: true,
     source: 'client_fallback',
     reply: replyText,
     nextStep,
-    options: stepConfig?.options || [],
+    options: returnedOptions,
     placeholder: stepConfig?.placeholder || '',
     updatedProfile,
     isComplete,
@@ -739,12 +789,31 @@ function evaluateClientConversationStep({
 /**
  * Helper to fetch initial greeting message when chat opens
  */
-export function getInitialChatMessage(language = 'en', existingName = '') {
+export function getInitialChatMessage(language = 'en', existingName = '', existingProfile = {}) {
   const stepConfig = QUESTION_FLOW.name[language] || QUESTION_FLOW.name.en;
+  const isKn = language === 'kn';
+  const options = existingName ? [{ label: existingName, value: existingName }, ...stepConfig.options] : [...stepConfig.options];
+
+  const hasCapturedDetails = Boolean(
+    existingName ||
+    existingProfile?.district ||
+    existingProfile?.landHolding ||
+    existingProfile?.landType ||
+    existingProfile?.cropType
+  );
+
+  if (hasCapturedDetails && !options.some(o => o.value === 'EVALUATE_NOW')) {
+    options.unshift({
+      label: isKn ? "⚡ ಈಗಲೇ ಪರಿಶೀಲಿಸಿ" : "⚡ Evaluate My Profile Now",
+      value: "EVALUATE_NOW",
+      subtext: isKn ? "ದಾಖಲಾದ ವಿವರಗಳೊಂದಿಗೆ" : "Use existing details"
+    });
+  }
+
   return {
     reply: stepConfig.question,
     nextStep: 'name',
-    options: existingName ? [{ label: existingName, value: existingName }, ...stepConfig.options] : stepConfig.options,
+    options,
     placeholder: stepConfig.placeholder,
     isComplete: false,
     stepProgress: 10
